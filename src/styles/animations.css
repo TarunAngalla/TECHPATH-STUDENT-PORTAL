@@ -1,0 +1,50 @@
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(107, 78, 255, 0.3); }
+  50% { box-shadow: 0 0 20px 4px rgba(107, 78, 255, 0.2); }
+}
+
+@keyframes path-drift {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+
+@keyframes ping-soft {
+  75%, 100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes auth-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-path-drift {
+  animation: path-drift 8s ease-in-out infinite;
+}
+
+.auth-marquee-track {
+  animation: auth-marquee linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer,
+  .animate-pulse-glow,
+  .animate-path-drift,
+  .auth-marquee-track {
+    animation: none;
+  }
+}

@@ -1,0 +1,48 @@
+@theme {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-playfair), var(--font-jakarta), ui-serif, Georgia, serif;
+
+  --color-brand-50: #eef8fb;
+  --color-brand-100: #d5eef5;
+  --color-brand-500: #0e7c7b;
+  --color-brand-600: #0f4c81;
+  --color-brand-700: #0a3a66;
+  --color-accent: #6b4eff;
+  --color-accent-soft: #ede9ff;
+
+  --color-surface: #f4f7fb;
+  --color-surface-glass: rgba(255, 255, 255, 0.72);
+  --color-surface-elevated: #ffffff;
+  --color-border-subtle: rgba(15, 76, 129, 0.08);
+  --color-border-strong: rgba(15, 76, 129, 0.16);
+
+  --color-text-primary: #0a1628;
+  --color-text-muted: #64748b;
+  --color-text-inverse: #ffffff;
+
+  --color-success: #16a34a;
+  --color-success-soft: #dcfce7;
+  --color-warning: #d97706;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fee2e2;
+
+  --shadow-glass: 0 8px 32px rgba(15, 76, 129, 0.08);
+  --shadow-elevated: 0 12px 40px rgba(15, 76, 129, 0.12);
+  --shadow-glow: 0 0 24px rgba(107, 78, 255, 0.25);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+}
+
+:root {
+  --brand-gradient: linear-gradient(135deg, #0f4c81 0%, #0e7c7b 50%, #1b9aaa 100%);
+  --mesh-gradient: radial-gradient(at 0% 0%, rgba(107, 78, 255, 0.12) 0%, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(14, 124, 123, 0.15) 0%, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(15, 76, 129, 0.1) 0%, transparent 50%),
+    var(--color-surface);
+}
