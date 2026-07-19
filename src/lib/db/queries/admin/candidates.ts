@@ -1,11 +1,18 @@
-import { count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, or } from "drizzle-orm";
+import type { StaffScope } from "@/lib/auth/staff-scope";
 import { db } from "@/lib/db";
 import { applications, candidates, messages, users } from "@/lib/db/schema";
 
-export async function getCandidatesList() {
+function scopeWhere(scope?: StaffScope) {
+  if (!scope || scope.seesAllCandidates || !scope.recruiterId) return undefined;
+  return eq(candidates.recruiterId, scope.recruiterId);
+}
+
+export async function getCandidatesList(scope?: StaffScope) {
   const rows = await db
     .select({
       id: candidates.id,
+      userId: candidates.userId,
       fullName: candidates.fullName,
       optType: candidates.optType,
       journeyStage: candidates.journeyStage,
@@ -15,6 +22,7 @@ export async function getCandidatesList() {
     })
     .from(candidates)
     .innerJoin(users, eq(candidates.userId, users.id))
+    .where(scopeWhere(scope))
     .orderBy(desc(candidates.createdAt));
 
   return Promise.all(
@@ -26,7 +34,7 @@ export async function getCandidatesList() {
       const [lastMsg] = await db
         .select({ sentAt: messages.sentAt })
         .from(messages)
-        .where(eq(messages.candidateId, c.id))
+        .where(or(eq(messages.senderId, c.userId), eq(messages.receiverId, c.userId)))
         .orderBy(desc(messages.sentAt))
         .limit(1);
       let recruiterEmail: string | null = null;
@@ -48,7 +56,11 @@ export async function getCandidatesList() {
   );
 }
 
-export async function getCandidateDetail(candidateId: string) {
+export async function getCandidateDetail(candidateId: string, scope?: StaffScope) {
+  const conditions = [eq(candidates.id, candidateId)];
+  const scopeFilter = scopeWhere(scope);
+  if (scopeFilter) conditions.push(scopeFilter);
+
   const [row] = await db
     .select({
       id: candidates.id,
@@ -63,9 +75,15 @@ export async function getCandidateDetail(candidateId: string) {
     })
     .from(candidates)
     .innerJoin(users, eq(candidates.userId, users.id))
-    .where(eq(candidates.id, candidateId))
+    .where(and(...conditions))
     .limit(1);
   return row ?? null;
+}
+
+export async function assertCandidateInScope(candidateId: string, scope: StaffScope) {
+  if (scope.seesAllCandidates) return true;
+  const detail = await getCandidateDetail(candidateId, scope);
+  return Boolean(detail);
 }
 
 export async function getRecruiters() {
@@ -74,3 +92,5 @@ export async function getRecruiters() {
     .from(users)
     .where(eq(users.role, "recruiter"));
 }
+
+

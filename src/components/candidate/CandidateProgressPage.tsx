@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Building,
+  Send,
+  Compass,
+  ChevronRight,
+  Clock,
+  Circle
+} from "lucide-react";
 import { StaggerChildren, StaggerItem } from "@/components/motion/PageTransition";
-import { JourneyBar } from "@/components/shared/JourneyBar";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { JOURNEY_STEPS } from "@/lib/constants/journey";
 import type { Application } from "@/lib/db/schema";
 import { formatDate } from "@/lib/utils/dates";
+import { cn } from "@/lib/utils/cn";
 
 const STAGE_INFO: Record<
   number,
@@ -97,114 +105,121 @@ export function CandidateProgressPage({
   });
 
   const statTiles = [
-    { value: uniqueCompanies, label: "Companies in your pipeline" },
-    { value: applications.length, label: "Applications submitted so far" },
-    { value: journeyStage + 1, label: `Journey stage (of ${JOURNEY_STEPS.length})` },
+    { value: uniqueCompanies, label: "Companies in Pipeline", icon: Building, iconColor: "text-brand-500 bg-brand-50 border border-brand-100" },
+    { value: applications.length, label: "Applications Submitted", icon: Send, iconColor: "text-success bg-green-50 border border-green-100" },
+    { value: `${journeyStage + 1} / ${JOURNEY_STEPS.length}`, label: "Current Stage", icon: Compass, iconColor: "text-purple-600 bg-purple-50 border border-purple-100" },
   ];
 
   return (
-    <section aria-labelledby="progress-heading" className="grid gap-4 md:gap-6">
+    <section aria-labelledby="progress-heading" className="grid gap-6">
       <h2 id="progress-heading" className="sr-only">
         My progress
       </h2>
 
-      <Card variant="glass" className="col-span-full">
-        <CardHeader>
-          <CardTitle>Your marketing journey</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-2 pb-8">
-          <JourneyBar current={journeyStage} big />
-        </CardContent>
-      </Card>
 
-      <Card variant="glass" className="col-span-full bg-brand-50/50">
-        <CardHeader>
-          <CardTitle>Where you are right now: {stage.title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-text-muted mb-4">{stage.meaning}</p>
-          <div className="flex items-start gap-2 p-3 rounded-xl bg-surface-elevated border border-border-subtle">
-            <CheckCircle2
-              size={14}
-              className="text-brand-500 mt-0.5 flex-shrink-0"
-              aria-hidden="true"
-            />
-            <div>
-              <div className="text-xs font-medium mb-0.5 text-text-primary">What you should do</div>
-              <p className="text-xs text-text-muted">{stage.nextAction}</p>
-            </div>
+      {/* Highlight Where You Are Card */}
+      <Card variant="glass" className="col-span-full bg-brand-50/15 border border-brand-500/20 rounded-2xl p-6 shadow-xs">
+        <span className="text-[10px] font-semibold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-md uppercase tracking-wider">Current Status</span>
+        <h3 className="text-base font-bold text-text-primary mt-2">Active Stage: {stage.title}</h3>
+        <p className="text-xs text-text-muted mt-1.5 max-w-3xl leading-relaxed">{stage.meaning}</p>
+        
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-white border border-border-strong/50 shadow-xs mt-4">
+          <CheckCircle2
+            size={16}
+            className="text-success mt-0.5 flex-shrink-0"
+            aria-hidden="true"
+          />
+          <div>
+            <div className="text-xs font-bold text-text-primary">Recommended Actions</div>
+            <p className="text-xs text-text-muted mt-1 leading-relaxed">{stage.nextAction}</p>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
-      <StaggerChildren className="col-span-full grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Stat grid */}
+      <StaggerChildren className="col-span-full grid grid-cols-1 sm:grid-cols-3 gap-4">
         {statTiles.map((tile) => (
           <StaggerItem key={tile.label}>
-            <motion.div
-              whileHover={{ y: -2 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Card variant="solid" hover="lift" className="p-4 text-center">
-                <div className="text-xl font-semibold text-text-primary">{tile.value}</div>
-                <div className="text-[11px] mt-1 text-text-muted">{tile.label}</div>
+            <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+              <Card variant="glass" className="p-5 flex items-center justify-between bg-white border border-border-strong/50 shadow-xs rounded-2xl">
+                <div>
+                  <div className="text-xs text-text-muted font-medium">{tile.label}</div>
+                  <div className="text-2xl font-bold text-text-primary mt-1">{tile.value}</div>
+                </div>
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", tile.iconColor)}>
+                  <tile.icon size={18} />
+                </div>
               </Card>
             </motion.div>
           </StaggerItem>
         ))}
       </StaggerChildren>
 
-      <Card variant="glass" className="col-span-full">
-        <CardHeader>
-          <CardTitle>Journey timeline</CardTitle>
+      {/* Journey Timeline */}
+      <Card variant="glass" className="col-span-full bg-white border border-border-strong/50 shadow-xs p-6 rounded-2xl">
+        <CardHeader className="p-0 mb-6">
+          <CardTitle className="text-base font-bold text-text-primary">Journey Timeline & History</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-5" role="list" aria-label="Journey timeline">
+        <CardContent className="p-0">
+          <div className="relative pl-6 space-y-6" role="list" aria-label="Journey timeline">
+            
+            {/* Vertical timeline line */}
+            <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-border-strong/60" aria-hidden="true" />
+
             {timeline.map((s, i) => (
               <motion.div
                 key={s.label}
-                className="flex gap-4"
+                className="relative flex gap-4"
                 role="listitem"
                 initial={{ opacity: 0, x: -16 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.4, delay: i * 0.08, ease: "easeOut" }}
               >
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                      s.done ? "bg-success" : "bg-border-strong"
-                    }`}
-                    aria-hidden="true"
-                  />
-                  {i < timeline.length - 1 && (
-                    <div
-                      className="w-0.5 flex-1 mt-1 bg-border-subtle"
-                      style={{ minHeight: 30 }}
-                    />
+                
+                {/* Checkmark circle badge */}
+                <div
+                  className={cn(
+                    "absolute -left-[22px] top-1 w-5 h-5 rounded-full flex items-center justify-center ring-4 ring-white shadow-sm z-10",
+                    s.active
+                      ? "bg-brand-500 text-white"
+                      : s.done
+                      ? "bg-success text-white"
+                      : "bg-surface border border-border-strong text-text-muted"
                   )}
+                  aria-hidden="true"
+                >
+                  {s.done || s.active ? <CheckCircle2 size={11} /> : <Circle size={8} className="fill-text-muted/20" />}
                 </div>
-                <div className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="text-sm font-medium text-text-primary">{s.label}</div>
+
+                <div className="flex-1 bg-surface/30 border border-border-subtle p-4 rounded-xl hover:border-border-strong transition-all duration-200">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="text-sm font-bold text-text-primary">{s.label}</div>
                     {s.duration && (
-                      <Badge variant={s.active ? "accent" : "muted"}>{s.duration}</Badge>
+                      <Badge variant={s.active ? "accent" : "success"} className="text-[9px] px-1.5 py-0.5 rounded-full">
+                        {s.duration}
+                      </Badge>
                     )}
                   </div>
-                  <div className="text-xs mb-1 text-brand-500">{s.date}</div>
-                  <div className="text-xs text-text-muted">{s.note}</div>
+                  <div className="text-[10px] text-brand-500 font-semibold mt-1 flex items-center gap-1">
+                    <Clock size={11} /> {s.date}
+                  </div>
+                  <div className="text-xs text-text-muted mt-2 leading-relaxed">{s.note}</div>
                 </div>
+
               </motion.div>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      <div className="col-span-full text-center">
+      {/* Footer recruiter help message */}
+      <div className="col-span-full text-center py-2">
         <Link
           href="/messages"
-          className="text-xs font-medium text-brand-500 hover:text-brand-600"
+          className="text-xs font-semibold text-brand-500 hover:underline inline-flex items-center gap-1"
         >
-          Questions about your timeline? Message your recruiter →
+          Have questions about your placement timeline? Contact Recruiter <ChevronRight size={13} />
         </Link>
       </div>
     </section>

@@ -4,7 +4,7 @@ import { getSessionOptions, type SessionData } from "@/lib/auth/session-config";
 import { getPortalFromHost } from "@/lib/portal";
 
 const CANDIDATE_PUBLIC = ["/login"];
-const ADMIN_PUBLIC = ["/admin/login"];
+const ADMIN_PUBLIC = ["/login", "/admin/login"];
 
 function isPublicPath(pathname: string, portal: "candidate" | "admin") {
   if (portal === "admin") {
@@ -17,6 +17,7 @@ function rewriteForPortal(request: NextRequest, portal: "candidate" | "admin") {
   const { pathname } = request.nextUrl;
 
   if (portal === "admin") {
+    if (pathname === "/login") return null; // Do not rewrite the unified login page
     if (pathname.startsWith("/admin")) return null;
     const url = request.nextUrl.clone();
     if (pathname === "/") {
@@ -43,6 +44,11 @@ function rewriteForPortal(request: NextRequest, portal: "candidate" | "admin") {
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
+
+  if (pathname === "/admin/login") {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
   const portal = getPortalFromHost(host, pathname);
 
   const rewrite = rewriteForPortal(request, portal);
@@ -56,7 +62,7 @@ export async function middleware(request: NextRequest) {
 
   if (!isLoggedIn && !publicPath) {
     const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = portal === "admin" ? "/admin/login" : "/login";
+    loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
   }
 
@@ -64,24 +70,45 @@ export async function middleware(request: NextRequest) {
     if (portal === "candidate" && session.role !== "candidate") {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/login";
-      session.destroy();
-      return NextResponse.redirect(loginUrl);
+      const redirectResponse = NextResponse.redirect(loginUrl);
+      redirectResponse.cookies.delete("techpath_session");
+      return redirectResponse;
     }
 
     if (portal === "admin" && session.role !== "recruiter" && session.role !== "admin") {
       const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/admin/login";
-      session.destroy();
-      return NextResponse.redirect(loginUrl);
+      loginUrl.pathname = "/login";
+      const redirectResponse = NextResponse.redirect(loginUrl);
+      redirectResponse.cookies.delete("techpath_session");
+      return redirectResponse;
     }
 
-    if (portal === "candidate" && publicPath) {
+    if (portal === "candidate" && session.role === "candidate" && session.firstLogin) {
+      if (pathname !== "/reset-password") {
+        const dest = request.nextUrl.clone();
+        dest.pathname = "/reset-password";
+        return NextResponse.redirect(dest);
+      }
+    }
+
+    if (
+      portal === "candidate" &&
+      session.role === "candidate" &&
+      !session.firstLogin &&
+      pathname === "/reset-password"
+    ) {
       const dest = request.nextUrl.clone();
       dest.pathname = "/dashboard";
       return NextResponse.redirect(dest);
     }
 
-    if (portal === "admin" && pathname === "/admin/login") {
+    if (portal === "candidate" && pathname === "/login") {
+      const dest = request.nextUrl.clone();
+      dest.pathname = session.firstLogin ? "/reset-password" : "/dashboard";
+      return NextResponse.redirect(dest);
+    }
+
+    if (portal === "admin" && pathname === "/login") {
       const dest = request.nextUrl.clone();
       dest.pathname = "/admin/dashboard";
       return NextResponse.redirect(dest);

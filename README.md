@@ -30,10 +30,14 @@ Production uses subdomains: `portal.thetechpath.com` and `admin.thetechpath.com`
 | Role | Email | Password |
 |---|---|---|
 | Admin | admin@thetechpath.com | admin123 |
-| Recruiter | sarah.mitchell@thetechpath.com | recruiter123 |
-| Candidate | ravi.kumar@example.com | temp-password-123 |
 
-Candidate passwords are **admin-controlled only** — no self-service change, no registration email.
+Seed is **admin only**. Create recruiters under Team, leads under Leads Inbox, then convert leads to candidates.
+
+```bash
+npm run db:reset   # wipe DB and re-create admin only
+```
+
+Candidate self-service password is available in Account Settings after login.
 
 ## Supabase Storage
 

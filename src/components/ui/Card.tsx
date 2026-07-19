@@ -4,13 +4,13 @@ import { cn } from "@/lib/utils/cn";
 const cardVariants = cva("rounded-2xl transition-all duration-200", {
   variants: {
     variant: {
-      glass: "glass shadow-glass",
-      solid: "bg-surface-elevated border border-border-subtle shadow-elevated",
-      gradient: "brand-gradient text-white shadow-elevated",
+      glass: "bg-surface-elevated border border-border-strong/50 shadow-xs",
+      solid: "bg-surface-elevated border border-border-subtle shadow-sm",
+      gradient: "brand-gradient text-white shadow-md",
     },
     hover: {
       none: "",
-      lift: "hover:shadow-elevated hover:-translate-y-0.5",
+      lift: "hover:shadow-md hover:-translate-y-0.5",
     },
   },
   defaultVariants: { variant: "glass", hover: "none" },

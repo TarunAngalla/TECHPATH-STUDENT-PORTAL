@@ -22,10 +22,9 @@ export function AnnouncementCard({
   return (
     <Card
       variant="glass"
-      hover={isRead ? "none" : "lift"}
       className={cn(
-        "relative overflow-hidden p-5",
-        !isRead && "cursor-pointer",
+        "relative overflow-hidden p-5 bg-white shadow-xs rounded-2xl transition-all duration-200 hover:border-border-strong border",
+        isRead ? "border-border-strong/40" : "border-border-strong/60 border-l-4 border-l-brand-500 bg-brand-50/5 cursor-pointer"
       )}
       aria-label={isRead ? undefined : `Unread announcement: ${title}`}
       onClick={!isRead ? onMarkRead : undefined}
@@ -42,16 +41,14 @@ export function AnnouncementCard({
       role={!isRead ? "button" : undefined}
       tabIndex={!isRead ? 0 : undefined}
     >
-      {!isRead && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1 brand-gradient"
-          aria-hidden="true"
-        />
-      )}
-
-      <div className="flex items-center gap-2 mb-1.5">
-        <Megaphone size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
-        <time className="text-xs text-text-muted" dateTime={String(createdAt)}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className={cn(
+          "w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 border",
+          isRead ? "bg-surface border-border-strong/30 text-text-muted" : "bg-brand-50 border-brand-100 text-brand-500"
+        )}>
+          <Megaphone size={12} aria-hidden="true" />
+        </div>
+        <time className="text-xs text-text-muted font-semibold" dateTime={String(createdAt)}>
           {formatDate(createdAt)}
         </time>
         {!isRead && (
@@ -61,15 +58,15 @@ export function AnnouncementCard({
               e.stopPropagation();
               onMarkRead?.();
             }}
-            className="ml-auto"
+            className="ml-auto focus:outline-none"
             aria-label={`Mark "${title}" as read`}
           >
-            <Badge variant="accent">New</Badge>
+            <Badge variant="accent" className="text-[9px] font-bold px-1.5 py-0.5 rounded-md">New</Badge>
           </button>
         )}
       </div>
-      <h3 className="text-sm font-medium mb-1 text-text-primary">{title}</h3>
-      <p className="text-xs text-text-muted leading-relaxed">{body}</p>
+      <h3 className="text-sm font-bold mb-1 text-text-primary leading-tight">{title}</h3>
+      <p className="text-xs text-text-muted leading-relaxed font-medium mt-1.5">{body}</p>
     </Card>
   );
 }

@@ -34,3 +34,26 @@ export function downloadInterviewICS(app: {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+export function getGoogleCalendarLink(app: {
+  companyName: string;
+  upcomingLabel: string | null;
+  upcomingWhen: Date | string | null;
+  upcomingPrep: string | null;
+}) {
+  if (!app.upcomingWhen || !app.upcomingLabel) return "";
+  const start = new Date(app.upcomingWhen);
+  if (isNaN(start.getTime())) return "";
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (d: Date) =>
+    `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  
+  const title = encodeURIComponent(`${app.companyName} — ${app.upcomingLabel}`);
+  const dates = `${fmt(start)}/${fmt(end)}`;
+  const details = encodeURIComponent(app.upcomingPrep ?? "");
+  
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`;
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, PanelLeft, PanelLeftClose } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -12,17 +12,21 @@ export function AdminTopbar({
   setMobileOpen,
   staffName,
   unreadMessages,
+  collapsed,
+  setCollapsed,
 }: {
   title: string;
   setMobileOpen: (open: boolean) => void;
   staffName: string;
   staffInitials?: string;
   unreadMessages: number;
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
 }) {
   const [notifOpen, setNotifOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between px-5 sm:px-8 py-4 gap-4 glass border-b border-border-subtle">
+    <header className="sticky top-0 z-10 flex items-center justify-between px-5 sm:px-8 py-4 gap-4 bg-surface-elevated/95 backdrop-blur-md border-b border-border-subtle shadow-xs">
       <div className="flex items-center gap-3 min-w-0">
         <button
           type="button"
@@ -35,6 +39,14 @@ export function AdminTopbar({
             <div className="w-5 h-0.5 bg-text-primary rounded-full" />
             <div className="w-5 h-0.5 bg-text-primary rounded-full" />
           </div>
+        </button>
+        <button
+          type="button"
+          className="hidden lg:flex flex-shrink-0 p-1 rounded-lg hover:bg-brand-50 text-text-muted hover:text-text-primary transition-colors mr-1"
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
         </button>
         <h1 className="text-base font-semibold truncate text-text-primary">{title}</h1>
       </div>

@@ -1,37 +1,177 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { messageReads, messages } from "@/lib/db/schema";
+import { messageReads, messages, users, candidates } from "@/lib/db/schema";
 
-export async function getMessagesByCandidateId(candidateId: string) {
+export async function getConversationMessages(userAId: string, userBId: string) {
   return db
     .select()
     .from(messages)
-    .where(eq(messages.candidateId, candidateId))
+    .where(
+      or(
+        and(eq(messages.senderId, userAId), eq(messages.receiverId, userBId)),
+        and(eq(messages.senderId, userBId), eq(messages.receiverId, userAId)),
+      ),
+    )
     .orderBy(messages.sentAt);
 }
 
-export async function getUnreadMessageCountForCandidate(candidateId: string, userId: string) {
-  const recruiterMessages = await db
+export async function markConversationMessagesRead(partnerId: string, currentUserId: string) {
+  const unread = await db
     .select({ id: messages.id })
     .from(messages)
-    .where(and(eq(messages.candidateId, candidateId), eq(messages.senderRole, "recruiter")));
+    .where(and(eq(messages.senderId, partnerId), eq(messages.receiverId, currentUserId)));
 
-  if (recruiterMessages.length === 0) return 0;
+  for (const msg of unread) {
+    await db
+      .insert(messageReads)
+      .values({ messageId: msg.id, userId: currentUserId })
+      .onConflictDoNothing();
+  }
+}
+
+export async function getUnreadMessageCount(currentUserId: string, partnerId?: string) {
+  const filter = partnerId
+    ? and(eq(messages.receiverId, currentUserId), eq(messages.senderId, partnerId))
+    : eq(messages.receiverId, currentUserId);
+
+  const receivedMessages = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(filter);
+
+  if (receivedMessages.length === 0) return 0;
 
   const read = await db
     .select({ messageId: messageReads.messageId })
     .from(messageReads)
-    .where(and(eq(messageReads.userId, userId), eq(messageReads.candidateId, candidateId)));
+    .where(eq(messageReads.userId, currentUserId));
 
   const readSet = new Set(read.map((r) => r.messageId));
-  return recruiterMessages.filter((m) => !readSet.has(m.id)).length;
+  return receivedMessages.filter((m) => !readSet.has(m.id)).length;
 }
 
-export async function getUnreadMessageCountForStaff() {
-  const candidateMessages = await db
-    .select({ id: messages.id })
-    .from(messages)
-    .where(eq(messages.senderRole, "candidate"));
+export async function getChatThreads(currentUserId: string, currentUserRole: string) {
+  const partnerUsers: { id: string; email: string; role: string; fullName?: string }[] = [];
 
-  return candidateMessages.length;
+  if (currentUserRole === "candidate") {
+    // 1. Get the admin
+    const admins = await db
+      .select({ id: users.id, email: users.email, role: users.role })
+      .from(users)
+      .where(eq(users.role, "admin"))
+      .limit(1);
+    if (admins.length > 0) {
+      partnerUsers.push({ ...admins[0], fullName: "System Admin" });
+    }
+
+    // 2. Get the assigned recruiter
+    const [cand] = await db
+      .select()
+      .from(candidates)
+      .where(eq(candidates.userId, currentUserId))
+      .limit(1);
+    if (cand?.recruiterId) {
+      const [recruiter] = await db
+        .select({ id: users.id, email: users.email, role: users.role })
+        .from(users)
+        .where(eq(users.id, cand.recruiterId))
+        .limit(1);
+      if (recruiter) {
+        const local = recruiter.email.split("@")[0] ?? "Recruiter";
+        const recruiterName = local.replace(/\./g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        partnerUsers.push({ ...recruiter, fullName: recruiterName });
+      }
+    }
+  } else if (currentUserRole === "recruiter") {
+    // 1. Get the admin
+    const admins = await db
+      .select({ id: users.id, email: users.email, role: users.role })
+      .from(users)
+      .where(eq(users.role, "admin"))
+      .limit(1);
+    if (admins.length > 0) {
+      partnerUsers.push({ ...admins[0], fullName: "System Admin" });
+    }
+
+    // 2. Get assigned candidates
+    const assignedCands = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+        fullName: candidates.fullName,
+      })
+      .from(candidates)
+      .innerJoin(users, eq(users.id, candidates.userId))
+      .where(eq(candidates.recruiterId, currentUserId));
+
+    partnerUsers.push(...assignedCands);
+  } else if (currentUserRole === "admin") {
+    // Admin can message any recruiter or candidate with a portal account.
+    const recruiters = await db
+      .select({ id: users.id, email: users.email, role: users.role })
+      .from(users)
+      .where(eq(users.role, "recruiter"));
+
+    for (const u of recruiters) {
+      const local = u.email.split("@")[0] ?? "Recruiter";
+      partnerUsers.push({
+        ...u,
+        fullName: local.replace(/\./g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      });
+    }
+
+    const candRows = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+        fullName: candidates.fullName,
+      })
+      .from(candidates)
+      .innerJoin(users, eq(users.id, candidates.userId));
+
+    partnerUsers.push(...candRows);
+  }
+
+  const threads = [];
+  for (const p of partnerUsers) {
+    const [latest] = await db
+      .select()
+      .from(messages)
+      .where(
+        or(
+          and(eq(messages.senderId, currentUserId), eq(messages.receiverId, p.id)),
+          and(eq(messages.receiverId, currentUserId), eq(messages.senderId, p.id)),
+        ),
+      )
+      .orderBy(desc(messages.sentAt))
+      .limit(1);
+
+    const unreadCount = await getUnreadMessageCount(currentUserId, p.id);
+
+    threads.push({
+      id: p.id,
+      fullName: p.fullName || p.email,
+      email: p.email,
+      role: p.role,
+      latestMessage: latest
+        ? {
+            body: latest.body,
+            sentAt: latest.sentAt,
+            senderId: latest.senderId,
+          }
+        : null,
+      unreadCount,
+    });
+  }
+
+  return threads.sort((a, b) => {
+    if (a.latestMessage && b.latestMessage) {
+      return new Date(b.latestMessage.sentAt).getTime() - new Date(a.latestMessage.sentAt).getTime();
+    }
+    if (a.latestMessage) return -1;
+    if (b.latestMessage) return 1;
+    return a.fullName.localeCompare(b.fullName);
+  });
 }

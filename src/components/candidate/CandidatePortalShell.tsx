@@ -32,6 +32,7 @@ export function CandidatePortalShell({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const navKey = pathToNavKey(pathname);
   const title = CANDIDATE_PAGE_TITLES[navKey];
 
@@ -47,6 +48,7 @@ export function CandidatePortalShell({
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
         messageBadge={messageBadge}
+        collapsed={collapsed}
       />
       <div className="flex-1 min-w-0 flex flex-col">
         <CandidateTopbar
@@ -56,10 +58,14 @@ export function CandidatePortalShell({
           unreadAnnouncements={unreadAnnouncements}
           announcements={announcements}
           applications={applications}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
         />
-        <main id="main-content" className="flex-1 px-5 sm:px-8 py-6" tabIndex={-1}>
-          <div className="max-w-6xl mx-auto">
-            <PageTransition key={pathname}>{children}</PageTransition>
+        <main id="main-content" className="flex-1 px-5 sm:px-8 py-6 flex flex-col" tabIndex={-1}>
+          <div className="max-w-[1500px] mx-auto w-full flex-1 flex flex-col">
+            <div className="flex-1">
+              <PageTransition key={pathname}>{children}</PageTransition>
+            </div>
             <PortalFooter />
           </div>
         </main>

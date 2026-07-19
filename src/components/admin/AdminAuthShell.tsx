@@ -1,4 +1,5 @@
 import { requireStaffAuth } from "@/lib/auth/guards";
+import { getStaffScope, staffPortalSubtitle } from "@/lib/auth/staff-scope";
 import { getDashboardStats } from "@/lib/db/queries/admin/dashboard";
 import { AdminPortalShell } from "./AdminPortalShell";
 
@@ -21,13 +22,16 @@ function staffInitials(name: string) {
 
 export async function AdminAuthShell({ children }: { children: React.ReactNode }) {
   const session = await requireStaffAuth();
-  const stats = await getDashboardStats();
+  const scope = getStaffScope(session);
+  const stats = await getDashboardStats(scope);
   const name = staffDisplayName(session.email);
 
   return (
     <AdminPortalShell
       staffName={name}
       staffInitials={staffInitials(name)}
+      staffRole={scope.role}
+      portalSubtitle={staffPortalSubtitle(scope.role)}
       newLeadsBadge={stats.newLeads}
       unreadMessages={stats.unreadMessages}
     >

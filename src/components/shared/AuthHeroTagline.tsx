@@ -1,42 +1,23 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
-import { AUTH_TAGLINES } from "./AuthTaglineMarquee";
-
-const HERO_LINES = [
-  { lead: "We Don't Find You Jobs", accent: "We Build Your Path." },
-  { lead: "From Training to Placement", accent: "We've Got You Covered." },
-  { lead: "Your Career,", accent: "Our Commitment." },
-] as const;
+import { motion } from "framer-motion";
 
 export function AuthHeroTagline() {
-  const reduceMotion = useReducedMotion();
-
   return (
-    <div className="space-y-8 max-w-xl">
-      {HERO_LINES.map((block, i) => (
-        <motion.div
-          key={block.lead}
-          initial={reduceMotion ? false : { opacity: 0, x: -24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: i * 0.15, duration: 0.5, ease: "easeOut" }}
-        >
-          <p className="text-[clamp(2rem,4.5vw,3.5rem)] font-display font-semibold leading-[1.1] text-text-primary">
-            {block.lead}
-            <br />
-            <span className="text-gradient">{block.accent}</span>
-          </p>
-        </motion.div>
-      ))}
-
-      <motion.p
-        initial={reduceMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6, duration: 0.5 }}
-        className="text-base sm:text-lg text-text-muted leading-relaxed max-w-md"
+    <div className="space-y-3 max-w-md">
+      <motion.div
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
       >
-        {AUTH_TAGLINES[3]}
-      </motion.p>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-100/50 mb-2 shadow-xs">
+          🚀 Career Portal
+        </span>
+        <h2 className="text-3xl sm:text-4xl font-extrabold text-text-primary leading-tight font-display tracking-tight">
+          We Don&apos;t Find You Jobs.
+          <span className="block text-gradient mt-1">We Build Your Path.</span>
+        </h2>
+      </motion.div>
     </div>
   );
 }

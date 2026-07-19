@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Bell, HelpCircle, LogOut, Settings } from "lucide-react";
+import { Bell, HelpCircle, LogOut, Settings, PanelLeft, PanelLeftClose } from "lucide-react";
 import { candidateLogoutAction } from "@/lib/actions/auth";
 import type { Application } from "@/lib/db/schema";
 import { formatDate } from "@/lib/utils/dates";
@@ -33,6 +33,8 @@ export function CandidateTopbar({
   unreadAnnouncements,
   announcements,
   applications,
+  collapsed,
+  setCollapsed,
 }: {
   title: string;
   setMobileOpen: (open: boolean) => void;
@@ -40,6 +42,8 @@ export function CandidateTopbar({
   unreadAnnouncements: number;
   announcements: AnnouncementPreview[];
   applications: Application[];
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
 }) {
   const router = useRouter();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -48,7 +52,7 @@ export function CandidateTopbar({
 
   return (
     <>
-      <header className="glass sticky top-0 z-10 flex items-center justify-between px-5 sm:px-8 py-4 gap-4 border-b border-border-subtle">
+      <header className="bg-surface-elevated/95 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-5 sm:px-8 py-4 gap-4 border-b border-border-subtle shadow-xs">
         <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
@@ -62,7 +66,15 @@ export function CandidateTopbar({
               <div className="w-5 h-0.5 bg-text-primary rounded-full" />
             </div>
           </button>
-          <h1 className="text-base font-medium truncate text-text-primary">{title}</h1>
+          <button
+            type="button"
+            className="hidden lg:flex flex-shrink-0 p-1 rounded-lg hover:bg-brand-50 text-text-muted hover:text-text-primary transition-colors mr-1"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+          <h1 className="text-base font-semibold truncate text-text-primary">{title}</h1>
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">

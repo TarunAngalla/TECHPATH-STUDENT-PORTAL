@@ -23,7 +23,15 @@ export async function createSession(data: Omit<SessionData, "isLoggedIn">) {
   session.email = data.email;
   session.role = data.role;
   session.candidateId = data.candidateId;
+  session.firstLogin = data.firstLogin ?? false;
   session.isLoggedIn = true;
+  await session.save();
+}
+
+export async function updateSessionFirstLogin(firstLogin: boolean) {
+  const session = await getSession();
+  if (!session.isLoggedIn) return;
+  session.firstLogin = firstLogin;
   await session.save();
 }
 

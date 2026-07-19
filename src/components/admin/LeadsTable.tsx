@@ -1,19 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Check,
   CheckCircle2,
   Mail,
   Phone,
+  Plus,
   RefreshCw,
   Search,
   UserPlus,
   X,
 } from "lucide-react";
 import { createCandidateFromLead, generateCandidatePassword } from "@/lib/actions/candidates";
-import { saveLeadNotes, updateLeadStatus } from "@/lib/actions/leads";
+import { createLead, saveLeadNotes, updateLeadStatus } from "@/lib/actions/leads";
 import { LEAD_STATUS_META, type LeadStatus } from "@/lib/constants/lead-status";
 import { formatDate } from "@/lib/utils/dates";
 import type { leads } from "@/lib/db/schema";
@@ -67,8 +68,13 @@ function LeadCreateAccountPanel({
   };
 
   const handleCreate = () => {
-    if (!password) {
-      setError("Generate a temporary password first.");
+    const trimmed = password.trim();
+    if (!trimmed) {
+      setError("Enter or generate a temporary password first.");
+      return;
+    }
+    if (trimmed.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
     startTransition(async () => {
@@ -77,7 +83,7 @@ function LeadCreateAccountPanel({
         fullName: lead.name,
         optType: (lead.optType ?? "OPT") as "OPT" | "STEM_OPT",
         recruiterId: recruiterId || undefined,
-        password,
+        password: trimmed,
       });
       if (result.error) {
         setError(result.error);
@@ -128,7 +134,17 @@ function LeadCreateAccountPanel({
             Temporary password
           </label>
           <div className="flex gap-1.5">
-            <Input value={password} readOnly className="h-9 text-xs font-mono flex-1" />
+            <Input
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(null);
+              }}
+              placeholder="Type one or click refresh to generate"
+              autoComplete="new-password"
+              minLength={8}
+              className="h-9 text-xs font-mono flex-1"
+            />
             <Button
               type="button"
               variant="secondary"
@@ -136,11 +152,15 @@ function LeadCreateAccountPanel({
               onClick={handleGenerate}
               disabled={isPending}
               aria-label="Generate new temporary password"
+              title="Generate password"
               className="h-9 w-9 flex-shrink-0"
             >
               <RefreshCw size={13} aria-hidden="true" />
             </Button>
           </div>
+          <p className="text-[10px] text-text-muted mt-1 font-medium">
+            Editable · min 8 characters · refresh icon regenerates
+          </p>
         </div>
         {recruiters.length > 0 && (
           <div className="sm:col-span-2">
@@ -218,7 +238,46 @@ export function LeadsTable({
   const [query, setQuery] = useState("");
   const [leads, setLeads] = useState(initialLeads);
   const [expandedCreate, setExpandedCreate] = useState<string | null>(null);
+  const [showNewLead, setShowNewLead] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newOptType, setNewOptType] = useState<"OPT" | "STEM_OPT" | "">("");
+  const [newSource, setNewSource] = useState<"enquiry_form" | "consultation_booked">("enquiry_form");
+  const [newNotes, setNewNotes] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setLeads(initialLeads);
+  }, [initialLeads]);
+
+  const handleCreateLead = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    startTransition(async () => {
+      const result = await createLead({
+        name: newName,
+        email: newEmail,
+        phone: newPhone || undefined,
+        optType: newOptType || undefined,
+        source: newSource,
+        notes: newNotes || undefined,
+      });
+      if (result.error) {
+        setFormError(result.error);
+        return;
+      }
+      setShowNewLead(false);
+      setNewName("");
+      setNewEmail("");
+      setNewPhone("");
+      setNewOptType("");
+      setNewSource("enquiry_form");
+      setNewNotes("");
+      router.refresh();
+    });
+  };
 
   const handleStatus = (leadId: string, direction: "approve" | "reject") => {
     startTransition(async () => {
@@ -273,14 +332,136 @@ export function LeadsTable({
             </option>
           ))}
         </Select>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => setShowNewLead((v) => !v)}
+          className="text-xs font-semibold bg-brand-500 text-white flex items-center gap-1.5 shadow-xs hover:bg-brand-600"
+        >
+          <Plus size={13} aria-hidden="true" /> New lead
+        </Button>
       </div>
+
+      {showNewLead && (
+        <Card variant="glass" className="p-5 mb-4 bg-white border border-border-strong/50 shadow-xs">
+          <form onSubmit={handleCreateLead} className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="new-lead-name" className="block text-[11px] font-semibold text-text-muted mb-1">
+                Full name
+              </label>
+              <Input
+                id="new-lead-name"
+                required
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="h-9 text-xs"
+                placeholder="Jordan Smith"
+              />
+            </div>
+            <div>
+              <label htmlFor="new-lead-email" className="block text-[11px] font-semibold text-text-muted mb-1">
+                Email
+              </label>
+              <Input
+                id="new-lead-email"
+                type="email"
+                required
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="h-9 text-xs"
+                placeholder="jordan@example.com"
+              />
+            </div>
+            <div>
+              <label htmlFor="new-lead-phone" className="block text-[11px] font-semibold text-text-muted mb-1">
+                Phone (optional)
+              </label>
+              <Input
+                id="new-lead-phone"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                className="h-9 text-xs"
+                placeholder="(555) 000-0000"
+              />
+            </div>
+            <div>
+              <label htmlFor="new-lead-opt" className="block text-[11px] font-semibold text-text-muted mb-1">
+                OPT type
+              </label>
+              <Select
+                id="new-lead-opt"
+                value={newOptType}
+                onChange={(e) => setNewOptType(e.target.value as "OPT" | "STEM_OPT" | "")}
+                className="h-9 text-xs"
+              >
+                <option value="">Not set</option>
+                <option value="OPT">OPT</option>
+                <option value="STEM_OPT">STEM OPT</option>
+              </Select>
+            </div>
+            <div>
+              <label htmlFor="new-lead-source" className="block text-[11px] font-semibold text-text-muted mb-1">
+                Source
+              </label>
+              <Select
+                id="new-lead-source"
+                value={newSource}
+                onChange={(e) =>
+                  setNewSource(e.target.value as "enquiry_form" | "consultation_booked")
+                }
+                className="h-9 text-xs"
+              >
+                <option value="enquiry_form">Enquiry form</option>
+                <option value="consultation_booked">Consultation booked</option>
+              </Select>
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="new-lead-notes" className="block text-[11px] font-semibold text-text-muted mb-1">
+                Notes (optional)
+              </label>
+              <Textarea
+                id="new-lead-notes"
+                value={newNotes}
+                onChange={(e) => setNewNotes(e.target.value)}
+                rows={2}
+                className="text-xs"
+                placeholder="Internal note…"
+              />
+            </div>
+            {formError && (
+              <p className="sm:col-span-2 text-xs text-danger font-medium" role="alert">
+                {formError}
+              </p>
+            )}
+            <div className="sm:col-span-2 flex gap-2">
+              <Button type="submit" size="sm" disabled={isPending} className="text-xs bg-brand-500 text-white">
+                {isPending ? "Saving…" : "Add lead"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowNewLead(false)}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
       <p className="text-xs mb-3 text-text-muted">
         {filtered.length} of {leads.length} leads
       </p>
 
       <Card variant="glass" className="overflow-hidden">
         {filtered.length === 0 ? (
-          <p className="text-xs p-6 text-center text-text-muted">No leads match your filters.</p>
+          <p className="text-xs p-6 text-center text-text-muted">
+            {leads.length === 0
+              ? "No leads yet. Click New lead to add one."
+              : "No leads match your filters."}
+          </p>
         ) : (
           filtered.map((lead, i) => (
             <div

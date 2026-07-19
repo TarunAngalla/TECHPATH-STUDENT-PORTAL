@@ -1,8 +1,12 @@
+import { requireStaffAuth } from "@/lib/auth/guards";
+import { getStaffScope } from "@/lib/auth/staff-scope";
 import { getReportsData } from "@/lib/db/queries/admin/reports";
 import { ReportsPage } from "@/components/admin/ReportsPage";
 
 export default async function AdminReportsPage() {
-  const data = await getReportsData();
+  const session = await requireStaffAuth();
+  const scope = getStaffScope(session);
+  const data = await getReportsData(scope);
 
   return (
     <ReportsPage

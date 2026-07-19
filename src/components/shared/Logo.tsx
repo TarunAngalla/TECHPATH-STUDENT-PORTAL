@@ -3,9 +3,11 @@ import { cn } from "@/lib/utils/cn";
 export function Logo({
   dark = false,
   subtitle = "Candidate portal",
+  collapsed = false,
 }: {
   dark?: boolean;
   subtitle?: string;
+  collapsed?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -17,14 +19,16 @@ export function Logo({
       >
         TP
       </div>
-      <div className="leading-tight">
-        <div className={cn("text-sm font-semibold", dark ? "text-white" : "text-text-primary")}>
-          the tech path
+      {!collapsed && (
+        <div className="leading-tight">
+          <div className={cn("text-sm font-semibold", dark ? "text-white" : "text-text-primary")}>
+            the tech path
+          </div>
+          <div className={cn("text-[11px]", dark ? "text-white/60" : "text-text-muted")}>
+            {subtitle}
+          </div>
         </div>
-        <div className={cn("text-[11px]", dark ? "text-white/60" : "text-text-muted")}>
-          {subtitle}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

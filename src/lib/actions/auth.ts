@@ -9,8 +9,8 @@ import {
   isAdminEmail,
   logAudit,
 } from "@/lib/auth/password";
-import { requireStaffAuth } from "@/lib/auth/guards";
-import { createSession, destroySession } from "@/lib/auth/session";
+import { requireCandidateAuth, requireStaffAuth } from "@/lib/auth/guards";
+import { createSession, destroySession, updateSessionFirstLogin } from "@/lib/auth/session";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -36,56 +36,110 @@ export async function candidateLoginAction(
   }
 
   const user = await authenticateUser(parsed.data.email, parsed.data.password);
-  if (!user || user.role !== "candidate") {
+  if (!user) {
     return { error: "Invalid email or password." };
   }
 
-  await createSession({
-    userId: user.id,
-    email: user.email,
-    role: user.role,
-    candidateId: user.candidateId,
-  });
-
-  redirect("/dashboard");
+  if (user.role === "candidate") {
+    await createSession({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      candidateId: user.candidateId,
+      firstLogin: user.firstLogin,
+    });
+    if (user.firstLogin) {
+      redirect("/reset-password");
+    }
+    redirect("/dashboard");
+  } else if (user.role === "recruiter" || user.role === "admin") {
+    if (!isAdminEmail(user.email)) {
+      return { error: "Staff accounts must use a company email address." };
+    }
+    await createSession({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      firstLogin: false,
+    });
+    await logAudit({
+      actorUserId: user.id,
+      action: "admin_sign_in",
+      targetTable: "users",
+      targetId: user.id,
+    });
+    redirect("/admin/dashboard");
+  } else {
+    return { error: "Invalid user role." };
+  }
 }
 
 export async function adminLoginAction(
   _prev: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const parsed = loginSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-  });
+  return candidateLoginAction(_prev, formData);
+}
 
+const passwordSchema = z.object({
+  newPassword: z.string().min(8),
+  confirmPassword: z.string().min(8),
+});
+
+export async function forcedFirstLoginAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const session = await requireCandidateAuth();
+  if (!session.firstLogin) {
+    redirect("/dashboard");
+  }
+
+  const parsed = passwordSchema.safeParse({
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
   if (!parsed.success) {
-    return { error: "Enter both your work email and password to continue." };
+    return { error: "Password must be at least 8 characters." };
+  }
+  if (parsed.data.newPassword !== parsed.data.confirmPassword) {
+    return { error: "Passwords don't match." };
   }
 
-  if (!isAdminEmail(parsed.data.email)) {
-    return { error: "Use your thetechpath.com work email to sign in." };
-  }
+  await changePassword({
+    userId: session.userId,
+    newPassword: parsed.data.newPassword,
+    method: "forced_first_login",
+    changedByUserId: session.userId,
+    clearFirstLogin: true,
+  });
+  await updateSessionFirstLogin(false);
+  redirect("/dashboard");
+}
 
-  const user = await authenticateUser(parsed.data.email, parsed.data.password);
-  if (!user || (user.role !== "recruiter" && user.role !== "admin")) {
-    return { error: "Invalid email or password." };
+export async function candidateChangePasswordAction(data: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}) {
+  const session = await requireCandidateAuth();
+  if (session.firstLogin) {
+    return { error: "Complete first-login reset first." };
   }
+  if (data.newPassword.length < 8) return { error: "Password must be at least 8 characters." };
+  if (data.newPassword !== data.confirmPassword) return { error: "Passwords don't match." };
 
-  await createSession({
-    userId: user.id,
-    email: user.email,
-    role: user.role,
+  const user = await authenticateUser(session.email, data.currentPassword);
+  if (!user) return { error: "Current password is incorrect." };
+
+  await changePassword({
+    userId: session.userId,
+    newPassword: data.newPassword,
+    method: "self_service",
+    changedByUserId: session.userId,
   });
 
-  await logAudit({
-    actorUserId: user.id,
-    action: "admin_sign_in",
-    targetTable: "users",
-    targetId: user.id,
-  });
-
-  redirect("/admin/dashboard");
+  return { success: true };
 }
 
 export async function adminResetCandidatePassword(candidateUserId: string) {
@@ -100,6 +154,12 @@ export async function adminResetCandidatePassword(candidateUserId: string) {
     clearFirstLogin: false,
   });
 
+  // Force first-login again after admin reset
+  const { db } = await import("@/lib/db");
+  const { users } = await import("@/lib/db/schema");
+  const { eq } = await import("drizzle-orm");
+  await db.update(users).set({ firstLogin: true }).where(eq(users.id, candidateUserId));
+
   await logAudit({
     actorUserId: staff.userId,
     action: "admin_reset_candidate_password",
@@ -110,15 +170,15 @@ export async function adminResetCandidatePassword(candidateUserId: string) {
   return { password: newPassword };
 }
 
-async function logoutAction(portal: "candidate" | "admin") {
+async function logoutAction() {
   await destroySession();
-  redirect(portal === "admin" ? "/admin/login" : "/login");
+  redirect("/login");
 }
 
 export async function candidateLogoutAction() {
-  return logoutAction("candidate");
+  return logoutAction();
 }
 
 export async function adminLogoutAction() {
-  return logoutAction("admin");
+  return logoutAction();
 }

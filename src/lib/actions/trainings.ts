@@ -3,45 +3,105 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireStaffAuth } from "@/lib/auth/guards";
+import { requireStaffAuth, requireCandidateAuth } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
-import { candidateTrainings, trainings } from "@/lib/db/schema";
+import { candidateTrainings, candidates, trainings } from "@/lib/db/schema";
 
 const moduleSchema = z.object({
-  title: z.string().min(1),
+  title: z.string().trim().min(1, "Title is required"),
   type: z.enum(["video", "pdf"]),
-  contentUrl: z.string().optional(),
+  contentUrl: z.string().trim().min(1, "Content URL is required").url("Enter a valid URL"),
 });
 
 export async function createTrainingModule(data: z.infer<typeof moduleSchema>) {
-  await requireStaffAuth();
+  const session = await requireStaffAuth();
+  if (session.role !== "admin") return { error: "Admin only" };
   const parsed = moduleSchema.safeParse(data);
-  if (!parsed.success) return { error: "Invalid input" };
+  if (!parsed.success) return { error: parsed.error.errors[0]?.message ?? "Invalid input" };
 
-  await db.insert(trainings).values(parsed.data);
+  const [created] = await db
+    .insert(trainings)
+    .values({
+      title: parsed.data.title,
+      type: parsed.data.type,
+      contentUrl: parsed.data.contentUrl,
+    })
+    .returning();
+
+  // Assign to every candidate so the module appears in their Trainings list.
+  const allCandidates = await db.select({ id: candidates.id }).from(candidates);
+  if (allCandidates.length > 0) {
+    await db
+      .insert(candidateTrainings)
+      .values(
+        allCandidates.map((c) => ({
+          candidateId: c.id,
+          trainingId: created.id,
+          status: "upcoming" as const,
+        })),
+      )
+      .onConflictDoNothing();
+  }
+
   revalidatePath("/admin/trainings");
+  revalidatePath("/admin/candidates");
   revalidatePath("/trainings");
-  return {};
+  revalidatePath("/dashboard");
+  return { assignedCount: allCandidates.length };
 }
 
 export async function assignTrainingToCandidate(candidateId: string, trainingId: string) {
-  await requireStaffAuth();
+  const session = await requireStaffAuth();
+  const { getStaffScope } = await import("@/lib/auth/staff-scope");
+  const { assertCandidateInScope } = await import("@/lib/db/queries/admin/candidates");
+  if (!(await assertCandidateInScope(candidateId, getStaffScope(session)))) {
+    return { error: "Forbidden" };
+  }
   await db
     .insert(candidateTrainings)
     .values({ candidateId, trainingId, status: "upcoming" })
     .onConflictDoNothing();
   revalidatePath(`/admin/candidates/${candidateId}`);
   revalidatePath("/trainings");
+  revalidatePath("/dashboard");
   return {};
 }
 
 export async function markTrainingComplete(candidateTrainingId: string, candidateId: string) {
-  await requireStaffAuth();
+  const session = await requireStaffAuth();
+  const { getStaffScope } = await import("@/lib/auth/staff-scope");
+  const { assertCandidateInScope } = await import("@/lib/db/queries/admin/candidates");
+  if (!(await assertCandidateInScope(candidateId, getStaffScope(session)))) {
+    return { error: "Forbidden" };
+  }
   await db
     .update(candidateTrainings)
     .set({ status: "completed", completedAt: new Date() })
     .where(eq(candidateTrainings.id, candidateTrainingId));
   revalidatePath(`/admin/candidates/${candidateId}`);
   revalidatePath("/trainings");
+  revalidatePath("/dashboard");
+  return {};
+}
+
+export async function completeTrainingAsCandidate(candidateTrainingId: string) {
+  const session = await requireCandidateAuth();
+  const [ct] = await db
+    .select()
+    .from(candidateTrainings)
+    .where(eq(candidateTrainings.id, candidateTrainingId))
+    .limit(1);
+
+  if (!ct) return { error: "Training not found" };
+  if (ct.candidateId !== session.candidateId) return { error: "Unauthorized" };
+
+  await db
+    .update(candidateTrainings)
+    .set({ status: "completed", completedAt: new Date() })
+    .where(eq(candidateTrainings.id, candidateTrainingId));
+
+  revalidatePath("/trainings");
+  revalidatePath("/dashboard");
+  revalidatePath("/progress");
   return {};
 }

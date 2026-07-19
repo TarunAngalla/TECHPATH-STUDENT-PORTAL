@@ -7,10 +7,11 @@ import {
   applications,
   candidates,
   documents,
-  messageReads,
-  messages,
   passwordChangeLog,
+  candidateTrainings,
+  trainings,
 } from "@/lib/db/schema";
+import { getUnreadMessageCount as getUnreadForUser } from "@/lib/db/queries/shared/messages";
 
 export { getCandidateByUserId } from "./candidate-helpers";
 
@@ -24,6 +25,8 @@ export async function getDashboardStatsForCandidate(candidateId: string) {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - 7);
 
   const upcomingThisMonth = apps.filter((a) => {
     if (!a.upcomingWhen) return false;
@@ -31,36 +34,50 @@ export async function getDashboardStatsForCandidate(candidateId: string) {
     return when >= monthStart && when <= monthEnd;
   }).length;
 
+  const appsThisWeek = apps.filter((a) => new Date(a.createdAt) >= weekStart).length;
+
+  const trainingRows = await db
+    .select({
+      id: candidateTrainings.id,
+      status: candidateTrainings.status,
+      completedAt: candidateTrainings.completedAt,
+      title: trainings.title,
+    })
+    .from(candidateTrainings)
+    .innerJoin(trainings, eq(candidateTrainings.trainingId, trainings.id))
+    .where(eq(candidateTrainings.candidateId, candidateId))
+    .orderBy(desc(candidateTrainings.completedAt));
+
+  const completedTrainings = trainingRows.filter((t) => t.status === "completed");
+  const upcomingTrainings = trainingRows.filter((t) => t.status === "upcoming");
+
+  const recentActivity = [...apps]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 8);
+
   return {
     totalApplications: apps.length,
     inInterviewProcess: apps.filter((a) =>
       INTERVIEW_STATUSES.includes(a.status as (typeof INTERVIEW_STATUSES)[number]),
     ).length,
     upcomingThisMonth,
+    appsThisWeek,
     applications: apps,
     upcoming: apps
       .filter((a) => a.upcomingWhen)
       .sort((a, b) => new Date(a.upcomingWhen!).getTime() - new Date(b.upcomingWhen!).getTime()),
+    trainings: {
+      completed: completedTrainings,
+      upcoming: upcomingTrainings,
+      total: trainingRows.length,
+      completedCount: completedTrainings.length,
+    },
+    recentActivity,
   };
 }
 
-export async function getUnreadMessageCount(candidateId: string, userId: string) {
-  const recruiterMessages = await db
-    .select({ id: messages.id })
-    .from(messages)
-    .where(and(eq(messages.candidateId, candidateId), eq(messages.senderRole, "recruiter")));
-
-  if (recruiterMessages.length === 0) return 0;
-
-  const readIds = await db
-    .select({ messageId: messageReads.messageId })
-    .from(messageReads)
-    .where(
-      and(eq(messageReads.userId, userId), eq(messageReads.candidateId, candidateId)),
-    );
-
-  const readSet = new Set(readIds.map((r) => r.messageId));
-  return recruiterMessages.filter((m) => !readSet.has(m.id)).length;
+export async function getUnreadMessageCount(_candidateId: string, userId: string) {
+  return getUnreadForUser(userId);
 }
 
 export async function getAnnouncementsForCandidate(candidateId: string) {
@@ -104,7 +121,7 @@ export async function getPasswordChangeHistory(userId: string) {
     .orderBy(desc(passwordChangeLog.changedAt));
 }
 
-export async function getOnboardingChecklist(candidateId: string, _userId: string) {
+export async function getOnboardingChecklist(candidateId: string) {
   const [resume] = await db
     .select()
     .from(documents)
@@ -126,11 +143,25 @@ export async function getOnboardingChecklist(candidateId: string, _userId: strin
     ["interview_r1", "interview_r2", "interview_r3", "hr_round", "final_round", "offer"].includes(a.status),
   );
 
+  const mockTrainings = await db
+    .select({ status: candidateTrainings.status })
+    .from(candidateTrainings)
+    .innerJoin(trainings, eq(candidateTrainings.trainingId, trainings.id))
+    .where(
+      and(
+        eq(candidateTrainings.candidateId, candidateId),
+        sql`LOWER(${trainings.title}) LIKE '%mock interview%'`
+      )
+    )
+    .limit(1);
+
+  const hasCompletedMock = mockTrainings.some((t) => t.status === "completed");
+
   return [
-    { label: "Account created by recruiter", done: true, href: "/settings" },
-    { label: "Complete your candidate profile", done: Boolean(candidate?.phone), href: "/settings" },
-    { label: "Upload your resume", done: Boolean(resume), href: "/documents" },
-    { label: "Attend your first interview", done: hasInterview, href: "/upcoming" },
-    { label: "Finish technical mock interview training", done: false, href: "/trainings" },
+    { key: "account", label: "Account created by recruiter", done: true, href: "/settings" },
+    { key: "profile", label: "Complete your candidate profile", done: Boolean(candidate?.phone), href: "/settings" },
+    { key: "resume", label: "Upload your resume", done: Boolean(resume), href: "/documents" },
+    { key: "interview", label: "Attend your first interview", done: hasInterview, href: "/upcoming" },
+    { key: "training", label: "Finish technical mock interview training", done: hasCompletedMock, href: "/trainings" },
   ];
 }

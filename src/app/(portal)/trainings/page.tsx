@@ -1,9 +1,13 @@
 import { CandidateTrainingsList } from "@/components/candidate/CandidateTrainingsList";
 import { getCandidateContext } from "@/lib/candidate-context";
-import { getTrainingsForCandidate } from "@/lib/db/queries/shared/trainings";
+import {
+  ensureCandidateHasCatalogTrainings,
+  getTrainingsForCandidate,
+} from "@/lib/db/queries/shared/trainings";
 
 export default async function TrainingsPage() {
   const { candidate } = await getCandidateContext();
+  await ensureCandidateHasCatalogTrainings(candidate.id);
   const trainings = await getTrainingsForCandidate(candidate.id);
 
   return (

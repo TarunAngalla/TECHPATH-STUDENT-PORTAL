@@ -7,6 +7,7 @@ import {
   smallint,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -103,17 +104,21 @@ export const trainings = pgTable("trainings", {
   contentUrl: text("content_url"),
 });
 
-export const candidateTrainings = pgTable("candidate_trainings", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  candidateId: uuid("candidate_id")
-    .notNull()
-    .references(() => candidates.id, { onDelete: "cascade" }),
-  trainingId: uuid("training_id")
-    .notNull()
-    .references(() => trainings.id, { onDelete: "cascade" }),
-  status: text("status", { enum: ["upcoming", "completed"] }).notNull().default("upcoming"),
-  completedAt: timestamp("completed_at", { withTimezone: true }),
-});
+export const candidateTrainings = pgTable(
+  "candidate_trainings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    candidateId: uuid("candidate_id")
+      .notNull()
+      .references(() => candidates.id, { onDelete: "cascade" }),
+    trainingId: uuid("training_id")
+      .notNull()
+      .references(() => trainings.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["upcoming", "completed"] }).notNull().default("upcoming"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [unique("candidate_trainings_candidate_training_unique").on(table.candidateId, table.trainingId)],
+);
 
 export const documentCategories = [
   "resume",
@@ -168,17 +173,18 @@ export const messages = pgTable(
   "messages",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    candidateId: uuid("candidate_id")
-      .notNull()
-      .references(() => candidates.id, { onDelete: "cascade" }),
-    senderRole: text("sender_role", { enum: ["candidate", "recruiter"] }).notNull(),
     senderId: uuid("sender_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
+    receiverId: uuid("receiver_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("idx_messages_candidate").on(table.candidateId, table.sentAt)],
+  (table) => [
+    index("idx_messages_sender_receiver").on(table.senderId, table.receiverId, table.sentAt),
+  ],
 );
 
 export const messageReads = pgTable(
@@ -190,14 +196,11 @@ export const messageReads = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    candidateId: uuid("candidate_id")
-      .notNull()
-      .references(() => candidates.id, { onDelete: "cascade" }),
     readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     primaryKey({ columns: [table.messageId, table.userId] }),
-    index("idx_message_reads_user").on(table.userId, table.candidateId),
+    index("idx_message_reads_user").on(table.userId),
   ],
 );
 

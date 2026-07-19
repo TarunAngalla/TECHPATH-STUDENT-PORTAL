@@ -13,10 +13,12 @@ export function CandidateSidebar({
   mobileOpen,
   setMobileOpen,
   messageBadge,
+  collapsed = false,
 }: {
   mobileOpen: boolean;
   setMobileOpen: (open: boolean) => void;
   messageBadge?: number;
+  collapsed?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -32,12 +34,13 @@ export function CandidateSidebar({
       )}
       <aside
         className={cn(
-          "glass-dark fixed lg:static z-30 top-0 left-0 h-full w-64 flex flex-col transition-transform duration-300 lg:translate-x-0 shadow-elevated",
-          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          "glass-dark fixed lg:sticky z-30 top-0 left-0 h-full lg:h-screen flex flex-col transition-all duration-300 shadow-elevated",
+          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+          collapsed ? "w-64 lg:w-20" : "w-64",
         )}
       >
-        <div className="px-5 py-5 flex items-center justify-between border-b border-white/10">
-          <Logo dark subtitle="Candidate portal" />
+        <div className={cn("py-5 flex items-center justify-between border-b border-white/10", collapsed ? "px-4" : "px-5")}>
+          <Logo dark subtitle="Candidate portal" collapsed={collapsed} />
           <button
             type="button"
             className="lg:hidden text-text-inverse hover:text-white transition-colors"
@@ -51,9 +54,11 @@ export function CandidateSidebar({
         <nav className="flex-1 py-4 px-3 overflow-y-auto" aria-label="Main navigation">
           {CANDIDATE_NAV_SECTIONS.map((section, si) => (
             <div key={section.label} className={si > 0 ? "mt-5" : ""}>
-              <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                {section.label}
-              </div>
+              {!collapsed && (
+                <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                  {section.label}
+                </div>
+              )}
               <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const active =
@@ -67,22 +72,16 @@ export function CandidateSidebar({
                       onClick={() => setMobileOpen(false)}
                       aria-current={active ? "page" : undefined}
                       className={cn(
-                        "relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                        "relative w-full flex items-center rounded-xl text-sm font-medium transition-all duration-200",
+                        collapsed ? "justify-center px-3 py-3 gap-0" : "px-3 py-2.5 gap-3",
                         active
-                          ? "bg-white/10 text-text-inverse"
-                          : "text-white/60 hover:bg-white/5 hover:text-text-inverse",
+                          ? "bg-brand-500 text-white shadow-sm"
+                          : "text-white/60 hover:bg-white/5 hover:text-white",
                       )}
+                      title={collapsed ? item.label : undefined}
                     >
-                      {active && (
-                        <motion.span
-                          layoutId="sidebar-active-indicator"
-                          className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full brand-gradient shadow-glow"
-                          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                          aria-hidden="true"
-                        />
-                      )}
                       <item.icon size={17} aria-hidden="true" />
-                      <span className="flex-1">{item.label}</span>
+                      {!collapsed && <span className="flex-1">{item.label}</span>}
                       <AnimatePresence>
                         {badge != null && badge > 0 && (
                           <motion.span
@@ -91,7 +90,10 @@ export function CandidateSidebar({
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0, opacity: 0 }}
                             transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-danger text-text-inverse"
+                            className={cn(
+                              "text-[10px] font-semibold rounded-full bg-danger text-text-inverse",
+                              collapsed ? "absolute -top-1 -right-1 px-1 min-w-[14px] h-[14px] flex items-center justify-center" : "px-1.5 py-0.5"
+                            )}
                           >
                             {badge}
                           </motion.span>
@@ -105,14 +107,31 @@ export function CandidateSidebar({
           ))}
         </nav>
 
+        {!collapsed && (
+          <div className="mx-3 my-2 p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/80">
+            <div className="font-semibold mb-1 text-white">Need Help?</div>
+            <div className="text-[10px] text-white/50 mb-2">{"We're here to support you."}</div>
+            <a
+              href="mailto:support@thetechpath.com"
+              className="text-[11px] font-medium text-brand-100 hover:underline block truncate"
+            >
+              support@thetechpath.com
+            </a>
+          </div>
+        )}
+
         <div className="p-3 border-t border-white/10">
           <form action={candidateLogoutAction}>
             <button
               type="submit"
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/50 hover:text-text-inverse hover:bg-white/5 transition-all duration-200"
+              className={cn(
+                "w-full flex items-center rounded-xl text-sm font-medium text-white/50 hover:text-white hover:bg-white/5 transition-all duration-200",
+                collapsed ? "justify-center px-3 py-3 gap-0" : "px-3 py-2.5 gap-3"
+              )}
+              title={collapsed ? "Logout" : undefined}
             >
               <LogOut size={17} aria-hidden="true" />
-              Logout
+              {!collapsed && <span>Logout</span>}
             </button>
           </form>
         </div>

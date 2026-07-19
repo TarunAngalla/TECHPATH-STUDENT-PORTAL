@@ -17,7 +17,7 @@ import {
 import { adminResetCandidatePassword } from "@/lib/actions/auth";
 import { reassignRecruiter, updateJourneyStage } from "@/lib/actions/candidates";
 import { deleteDocument, uploadDocument } from "@/lib/actions/documents";
-import { sendRecruiterMessage } from "@/lib/actions/messages";
+import { sendMessageAction } from "@/lib/actions/messages";
 import {
   assignTrainingToCandidate,
   markTrainingComplete,
@@ -71,6 +71,8 @@ export function CandidateDetailPage({
   trainingCatalog,
   messages,
   passwordHistory,
+  canReassignRecruiter = true,
+  initialTab = "Profile",
 }: {
   candidate: CandidateDetail;
   recruiters: { id: string; email: string }[];
@@ -100,9 +102,11 @@ export function CandidateDetailPage({
     changedAt: Date;
     method: string;
   }[];
+  canReassignRecruiter?: boolean;
+  initialTab?: Tab;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("Profile");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [journeyStage, setJourneyStage] = useState(candidate.journeyStage);
   const [recruiterId, setRecruiterId] = useState(candidate.recruiterId ?? "");
   const [reply, setReply] = useState("");
@@ -128,7 +132,7 @@ export function CandidateDetailPage({
   const handleSendMessage = () => {
     if (!reply.trim()) return;
     startTransition(async () => {
-      await sendRecruiterMessage(candidate.id, reply.trim());
+      await sendMessageAction(candidate.userId, reply.trim());
       setReply("");
       router.refresh();
     });
@@ -178,7 +182,7 @@ export function CandidateDetailPage({
               id="recruiter-select"
               value={recruiterId}
               onChange={(e) => handleRecruiterChange(e.target.value)}
-              disabled={isPending}
+              disabled={isPending || !canReassignRecruiter}
               className="h-9 text-xs"
             >
               <option value="">Unassigned</option>

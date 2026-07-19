@@ -5,7 +5,7 @@ import { FaqAccordion } from "@/components/shared/FaqAccordion";
 const FAQS = [
   {
     q: "How do I know when my application status changes?",
-    a: "You'll get an email notification and it will appear under Announcements. The Applications page always reflects the current stage.",
+    a: "Check the Applications page — it always shows the live status your recruiter updated. Important updates may also appear under Announcements. Email alerts are not enabled yet.",
   },
   {
     q: "Can I apply to companies myself?",
@@ -17,7 +17,11 @@ const FAQS = [
   },
   {
     q: "How do I update my resume?",
-    a: "Send your updated resume to your recruiter through Messages. They'll review it and upload the final version under Documents.",
+    a: "Upload your resume on the Documents page, or send the file to your recruiter through Messages if you need them to review it first.",
+  },
+  {
+    q: "How do I change my password?",
+    a: "Use Account Settings to change your password anytime. After an admin reset, you'll be asked to set a new password on next login.",
   },
 ];
 

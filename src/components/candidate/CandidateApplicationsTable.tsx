@@ -62,7 +62,7 @@ function ApplicationCommentField({
       placeholder="Add a note..."
       rows={2}
       disabled={isPending}
-      className="text-xs min-h-[60px]"
+      className="text-xs min-h-[50px] bg-surface/20 hover:bg-surface/40 focus:bg-white border-border-strong/40 focus:border-brand-500 rounded-xl"
     />
   );
 }
@@ -82,10 +82,10 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-200",
+        "rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-200 shadow-xs",
         active
-          ? "brand-gradient text-white shadow-sm"
-          : "bg-surface-elevated/80 text-text-muted border border-border-subtle hover:text-text-primary hover:border-border-strong",
+          ? "bg-brand-500 text-white border border-brand-500"
+          : "bg-white text-text-muted border border-border-strong/45 hover:text-text-primary hover:bg-surface",
       )}
     >
       {label}
@@ -95,20 +95,20 @@ function FilterChip({
 
 function ApplicationCard({ app }: { app: Application }) {
   return (
-    <Card variant="glass" className="p-4 space-y-3">
+    <Card variant="glass" className="p-4 space-y-3 bg-white border border-border-strong/50 shadow-xs rounded-2xl">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <CompanyBadge name={app.companyName} />
           <div className="min-w-0">
-            <div className="text-sm font-medium text-text-primary truncate">{app.companyName}</div>
+            <div className="text-sm font-bold text-text-primary truncate">{app.companyName}</div>
             <div className="text-xs text-text-muted truncate">{app.roleTitle}</div>
           </div>
         </div>
         <StatusPill status={app.status} />
       </div>
       <div className="flex items-center gap-3 text-xs text-text-muted">
-        <Badge variant="muted">{app.appNo}</Badge>
-        <span>Applied {formatDate(app.dateApplied)}</span>
+        <Badge variant="muted" className="bg-surface border border-border-strong/30 text-[10px]">{app.appNo}</Badge>
+        <span className="text-[11px]">Applied {formatDate(app.dateApplied)}</span>
       </div>
       <ApplicationCommentField
         id={`comment-mobile-${app.id}`}
@@ -142,7 +142,7 @@ export function CandidateApplicationsTable({ applications }: { applications: App
         Applications list
       </h2>
 
-      <div className="flex flex-col gap-3 mb-4">
+      <div className="flex flex-col gap-4 mb-5">
         <div className="relative">
           <Search
             size={14}
@@ -156,18 +156,18 @@ export function CandidateApplicationsTable({ applications }: { applications: App
             id="applications-search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by company or role"
-            className="pl-9 text-xs"
+            placeholder="Search by company or role..."
+            className="pl-9 text-xs border border-border-strong/50 shadow-xs focus:ring-1 focus:ring-brand-500 rounded-xl"
           />
         </div>
 
         <div
-          className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+          className="flex gap-2 overflow-x-auto pb-1.5 -mx-1 px-1 scrollbar-thin"
           role="group"
           aria-label="Filter by status"
         >
           <FilterChip
-            label="All statuses"
+            label="All Statuses"
             active={filter === "all"}
             onClick={() => setFilter("all")}
           />
@@ -182,12 +182,12 @@ export function CandidateApplicationsTable({ applications }: { applications: App
         </div>
       </div>
 
-      <p className="text-xs mb-3 text-text-muted" aria-live="polite">
+      <p className="text-xs font-semibold mb-3 text-text-muted" aria-live="polite">
         {filtered.length} of {applications.length} applications
       </p>
 
       {filtered.length === 0 ? (
-        <Card variant="glass" className="overflow-hidden">
+        <Card variant="glass" className="overflow-hidden bg-white border border-border-strong/50 shadow-xs rounded-2xl">
           <EmptyState
             title="No applications match"
             note="Try a different search term or filter. Once your recruiter moves an application here, it will show up automatically."
@@ -201,25 +201,25 @@ export function CandidateApplicationsTable({ applications }: { applications: App
             ))}
           </div>
 
-          <Card variant="glass" className="hidden md:block overflow-hidden">
+          <Card variant="glass" className="hidden md:block overflow-hidden bg-white border border-border-strong/55 shadow-xs rounded-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[780px]" aria-label="Applications">
                 <thead>
-                  <tr className="bg-surface/60 border-b border-border-subtle">
-                    <th scope="col" className="px-4 py-3 text-[11px] font-medium text-text-muted">
+                  <tr className="bg-surface/50 border-b border-border-strong/50">
+                    <th scope="col" className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-text-muted">
                       App No.
                     </th>
-                    <th scope="col" className="px-4 py-3 text-[11px] font-medium text-text-muted">
-                      Company / role
+                    <th scope="col" className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-text-muted">
+                      Company / Role
                     </th>
-                    <th scope="col" className="px-4 py-3 text-[11px] font-medium text-text-muted">
-                      Date applied
+                    <th scope="col" className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-text-muted">
+                      Date Applied
                     </th>
-                    <th scope="col" className="px-4 py-3 text-[11px] font-medium text-text-muted">
+                    <th scope="col" className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-text-muted">
                       Status
                     </th>
-                    <th scope="col" className="px-4 py-3 text-[11px] font-medium text-text-muted">
-                      Comments
+                    <th scope="col" className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-text-muted">
+                      Comments / Notes
                     </th>
                   </tr>
                 </thead>
@@ -227,31 +227,31 @@ export function CandidateApplicationsTable({ applications }: { applications: App
                   {filtered.map((app) => (
                     <tr
                       key={app.id}
-                      className="border-t border-border-subtle align-top transition-colors hover:bg-brand-50/40"
+                      className="border-t border-border-subtle align-top transition-colors hover:bg-surface/30 bg-white"
                     >
-                      <td className="px-4 py-3.5 text-xs text-text-muted whitespace-nowrap">
+                      <td className="px-5 py-4 text-xs font-semibold text-text-muted whitespace-nowrap">
                         {app.appNo}
                       </td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
                           <CompanyBadge name={app.companyName} />
                           <div className="min-w-0">
-                            <div className="text-sm font-medium text-text-primary truncate">
+                            <div className="text-sm font-bold text-text-primary truncate">
                               {app.companyName}
                             </div>
-                            <div className="text-[11px] text-text-muted truncate">
+                            <div className="text-[11px] text-text-muted truncate mt-0.5 font-medium">
                               {app.roleTitle}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-xs text-text-muted whitespace-nowrap">
+                      <td className="px-5 py-4 text-xs text-text-muted whitespace-nowrap font-medium">
                         {formatDate(app.dateApplied)}
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-5 py-4">
                         <StatusPill status={app.status} />
                       </td>
-                      <td className="px-4 py-3.5 min-w-[220px]">
+                      <td className="px-5 py-4 min-w-[220px]">
                         <ApplicationCommentField
                           id={`comment-${app.id}`}
                           value={app.comment}
@@ -267,7 +267,7 @@ export function CandidateApplicationsTable({ applications }: { applications: App
         </>
       )}
 
-      <p className="text-[11px] mt-3 text-text-muted">{APPLICATIONS_HELP}</p>
+      <p className="text-[11px] mt-4 text-text-muted leading-relaxed">{APPLICATIONS_HELP}</p>
     </section>
   );
 }

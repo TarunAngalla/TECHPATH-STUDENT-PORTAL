@@ -5,6 +5,7 @@ import {
   Inbox,
   LayoutDashboard,
   Megaphone,
+  MessageCircle,
   Settings,
   ShieldCheck,
   Users,
@@ -18,6 +19,7 @@ export type AdminNavKey =
   | "announcements"
   | "reports"
   | "team"
+  | "messages"
   | "settings";
 
 export const ADMIN_NAV_SECTIONS: {
@@ -41,6 +43,7 @@ export const ADMIN_NAV_SECTIONS: {
     items: [
       { key: "leads", label: "Leads Inbox", icon: Inbox, href: "/admin/leads", badgeKey: "newLeads" },
       { key: "candidates", label: "Candidates", icon: Users, href: "/admin/candidates" },
+      { key: "messages", label: "Messages", icon: MessageCircle, href: "/admin/messages" },
     ],
   },
   {
@@ -71,6 +74,7 @@ export const ADMIN_PAGE_TITLES: Record<AdminNavKey, string> = {
   announcements: "Announcements",
   reports: "Reports",
   team: "Team & Permissions",
+  messages: "Messages",
   settings: "Account Settings",
 };
 
