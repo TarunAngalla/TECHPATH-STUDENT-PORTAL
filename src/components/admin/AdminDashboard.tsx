@@ -9,33 +9,55 @@ import {
   TrendingUp,
   UserPlus,
   Users,
+  Calendar,
+  Download,
+  FileText,
+  CheckCircle,
+  ArrowRight,
+  ChevronRight,
+  Megaphone,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { PipelineFunnel } from "@/components/shared/PipelineFunnel";
-import { StaggerChildren, StaggerItem } from "@/components/motion/PageTransition";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip as ChartTooltip,
+  CartesianGrid,
+} from "recharts";
+import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { formatDateTime } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 
 type DashboardProps = {
   staffName: string;
+  portalLabel: string;
   newLeads: number;
+  consultations: number;
   activeCandidates: number;
+  marketingLive: number;
   interviewsThisWeek: number;
+  interviewsInProgress: number;
+  recruitersAssigned: number;
   unreadMessages: number;
+  periodLabel: string;
   funnel: {
     enquiries: number;
     consultations: number;
-    active: number;
-    placed: number;
+    portalAccess: number;
+    marketingLive: number;
+    interviewsInProgress: number;
+    conversions: {
+      consultations: string;
+      portal: string;
+      marketing: string;
+      interviews: string;
+    };
   };
-  workload: { email: string; count: number }[];
-  recentAudit: {
-    id: string;
-    action: string;
-    createdAt: Date;
-  }[];
+  recentAudit: { id: string; action: string; createdAt: Date }[];
   recentMessages: {
     id: string;
     body: string;
@@ -43,266 +65,521 @@ type DashboardProps = {
     candidateId: string;
     senderRole: string;
   }[];
+  recentLeads: {
+    id: string;
+    name: string;
+    notes: string;
+    status: string;
+    source: string;
+  }[];
+  assignments: {
+    candidateId: string;
+    candidateName: string;
+    recruiterEmail: string;
+    journeyStage: number;
+  }[];
+  marketingProgress: {
+    candidateId: string;
+    candidateName: string;
+    appCount: number;
+    interviews: number;
+    assessments: number;
+    appliedPct: number;
+    interviewPct: number;
+  }[];
+  weeklyTrend: {
+    name: string;
+    Enquiries: number;
+    Consultations: number;
+    Portal: number;
+    Marketing: number;
+    Interviews: number;
+  }[];
   candidateNames: Record<string, string>;
+  exportRows: {
+    name: string;
+    email: string;
+    recruiter: string;
+    journeyStage: number;
+    applications: number;
+  }[];
 };
 
-const AUDIT_ICONS: Record<string, LucideIcon> = {
-  admin_sign_in: Lock,
-  create_candidate_from_lead: UserPlus,
-  admin_reset_candidate_password: Lock,
-};
-
-const STAT_CARDS = [
-  {
-    key: "newLeads",
-    label: "New leads",
-    icon: Inbox,
-    iconBg: "bg-brand-100",
-    iconColor: "text-brand-600",
-    href: "/admin/leads",
-  },
-  {
-    key: "activeCandidates",
-    label: "Active candidates",
-    icon: Users,
-    iconBg: "bg-brand-50",
-    iconColor: "text-brand-500",
-    href: "/admin/candidates",
-  },
-  {
-    key: "interviewsThisWeek",
-    label: "Interviews this week",
-    icon: Clock,
-    iconBg: "bg-warning-soft",
-    iconColor: "text-warning",
-    href: "/admin/candidates",
-  },
-  {
-    key: "unreadMessages",
-    label: "Unread candidate messages",
-    icon: MessageCircle,
-    iconBg: "bg-success-soft",
-    iconColor: "text-success",
-    href: "/admin/candidates",
-  },
-] as const;
-
-function formatAuditText(
-  action: string,
-  candidateNames: Record<string, string>,
-  targetId: string | null,
-) {
-  switch (action) {
-    case "admin_sign_in":
-      return "Staff member signed in";
-    case "create_candidate_from_lead":
-      return targetId
-        ? `New candidate created from lead (${candidateNames[targetId] ?? "candidate"})`
-        : "New candidate created from lead";
-    case "admin_reset_candidate_password":
-      return "Candidate password reset by admin";
-    case "create_staff_recruiter":
-      return "New recruiter account created";
-    case "create_staff_admin":
-      return "New admin account created";
-    default:
-      return action.replace(/_/g, " ");
-  }
+function PipelineFunnelArrow() {
+  return (
+    <div className="hidden lg:flex items-center text-text-muted/40 mx-1 flex-shrink-0" aria-hidden="true">
+      <ArrowRight size={14} />
+    </div>
+  );
 }
 
-function DashboardStatCard({
-  label,
-  value,
-  icon: Icon,
-  iconBg,
-  iconColor,
-  href,
-}: {
-  label: string;
-  value: number;
-  icon: LucideIcon;
-  iconBg: string;
-  iconColor: string;
-  href: string;
-}) {
-  return (
-    <Link href={href} className="flex-1 min-w-[160px] block">
-      <Card variant="glass" hover="lift" className="p-5 h-full">
-        <div
-          className={cn("w-9 h-9 rounded-xl flex items-center justify-center mb-3", iconBg)}
-        >
-          <Icon size={17} className={iconColor} aria-hidden="true" />
-        </div>
-        <div className="text-2xl font-semibold text-text-primary">{value}</div>
-        <div className="text-xs mt-1 text-text-muted">{label}</div>
-      </Card>
-    </Link>
-  );
+function leadStatusVariant(status: string): "accent" | "warning" | "success" | "default" {
+  if (status === "new") return "accent";
+  if (status === "contacted") return "warning";
+  if (status === "qualified" || status === "converted") return "success";
+  return "default";
+}
+
+function roleInterestFromNotes(notes: string, source: string) {
+  const trimmed = notes?.trim();
+  if (trimmed) return trimmed.slice(0, 40) + (trimmed.length > 40 ? "…" : "");
+  return source === "consultation_booked" ? "Consultation" : "General enquiry";
+}
+
+function downloadCsv(rows: DashboardProps["exportRows"]) {
+  const header = ["Name", "Email", "Recruiter", "Journey Stage", "Applications"];
+  const lines = [
+    header.join(","),
+    ...rows.map((r) =>
+      [r.name, r.email, r.recruiter, String(r.journeyStage), String(r.applications)]
+        .map((cell) => `"${cell.replace(/"/g, '""')}"`)
+        .join(","),
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `techpath-candidates-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function AdminDashboard({
   staffName,
+  portalLabel,
   newLeads,
+  consultations,
   activeCandidates,
+  marketingLive,
   interviewsThisWeek,
+  interviewsInProgress,
+  recruitersAssigned,
   unreadMessages,
+  periodLabel,
   funnel,
-  workload,
   recentAudit,
   recentMessages,
+  recentLeads,
+  assignments,
+  marketingProgress,
+  weeklyTrend,
   candidateNames,
+  exportRows,
 }: DashboardProps) {
-  const values = { newLeads, activeCandidates, interviewsThisWeek, unreadMessages };
-
-  const funnelStages = [
+  const statCards = [
     {
-      label: "Enquiries",
-      value: funnel.enquiries,
-      barClass: "bg-text-muted",
-      trackClass: "bg-surface",
+      label: "New Enquiries",
+      value: newLeads,
+      hint: "Open leads",
+      icon: UserPlus,
+      iconBg: "bg-green-50 text-green-600 border border-green-100",
     },
     {
-      label: "Consultations booked",
-      value: funnel.consultations,
-      barClass: "bg-brand-500",
-      trackClass: "bg-brand-50",
+      label: "Consultation Bookings",
+      value: consultations,
+      hint: "Consultation source",
+      icon: Calendar,
+      iconBg: "bg-blue-50 text-blue-600 border border-blue-100",
     },
     {
-      label: "Active candidates",
-      value: funnel.active,
-      barClass: "bg-brand-600",
-      trackClass: "bg-brand-100",
+      label: "Active Candidates",
+      value: activeCandidates,
+      hint: "Portal accounts",
+      icon: Users,
+      iconBg: "bg-purple-50 text-purple-600 border border-purple-100",
     },
     {
-      label: "Placed",
-      value: funnel.placed,
-      barClass: "bg-success",
-      trackClass: "bg-success-soft",
+      label: "Marketing Live",
+      value: marketingLive,
+      hint: "Journey stage 2+",
+      icon: Megaphone,
+      iconBg: "bg-orange-50 text-orange-600 border border-orange-100",
+    },
+    {
+      label: "Recruiters Assigned",
+      value: recruitersAssigned,
+      hint: "With workload",
+      icon: CheckCircle,
+      iconBg: "bg-teal-50 text-teal-600 border border-teal-100",
+    },
+    {
+      label: "Interviews This Week",
+      value: interviewsThisWeek,
+      hint: `${interviewsInProgress} in progress`,
+      icon: Clock,
+      iconBg: "bg-blue-50 text-blue-600 border border-blue-100",
     },
   ];
 
-  const activityItems = [
-    ...recentMessages
-      .filter((m) => m.senderRole === "candidate")
-      .map((m) => ({
-        id: `msg-${m.id}`,
-        text: `${candidateNames[m.candidateId] ?? "A candidate"} sent a message`,
-        when: m.sentAt,
-        icon: MessageCircle,
-      })),
-    ...recentAudit.map((a) => ({
-      id: `audit-${a.id}`,
-      text: formatAuditText(a.action, candidateNames, null),
-      when: a.createdAt,
-      icon: AUDIT_ICONS[a.action] ?? TrendingUp,
-    })),
-  ]
-    .sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime())
-    .slice(0, 6);
+  const pipeline = [
+    { label: "Enquiry Received", value: funnel.enquiries, conversion: null as string | null },
+    { label: "Consultation Completed", value: funnel.consultations, conversion: funnel.conversions.consultations },
+    { label: "Portal Access Granted", value: funnel.portalAccess, conversion: funnel.conversions.portal },
+    { label: "Marketing Live", value: funnel.marketingLive, conversion: funnel.conversions.marketing },
+    { label: "Interviews in Progress", value: funnel.interviewsInProgress, conversion: funnel.conversions.interviews },
+  ];
 
   return (
-    <StaggerChildren className="space-y-6">
-      <StaggerItem>
-        <Card variant="gradient" className="relative p-6 overflow-hidden">
-          <div className="absolute w-40 h-40 rounded-full -right-10 -top-12 bg-white/6" />
-          <div className="relative">
-            <div className="text-xs font-medium mb-1.5 text-white/70">Welcome back</div>
-            <h2 className="text-xl font-semibold text-white mb-1.5">{staffName}</h2>
-            <p className="text-sm max-w-md text-white/80">
-              {newLeads > 0
-                ? `${newLeads} new lead${newLeads === 1 ? "" : "s"}`
-                : "No new leads"}
-              {unreadMessages > 0
-                ? ` and ${unreadMessages} candidate message${unreadMessages === 1 ? "" : "s"} are waiting on a response today.`
-                : " — inbox is up to date."}
-            </p>
+    <div className="grid gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-text-primary">Welcome back, {staffName}</h2>
+          <p className="text-xs text-text-muted mt-0.5">
+            TheTechPath {portalLabel} · Full-Time Placement Services
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          {unreadMessages > 0 && (
+            <Badge variant="warning" className="text-xs px-2.5 py-1 flex items-center gap-1">
+              <MessageCircle size={12} /> {unreadMessages} unread messages
+            </Badge>
+          )}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-strong bg-white text-xs font-semibold text-text-primary shadow-xs">
+            <Calendar size={13} className="text-text-muted" />
+            <span>{periodLabel}</span>
           </div>
-        </Card>
-      </StaggerItem>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs border border-border-strong bg-white hover:bg-surface text-text-primary shadow-xs"
+            onClick={() => downloadCsv(exportRows)}
+          >
+            <Download size={13} className="mr-1.5" /> Export Report
+          </Button>
+        </div>
+      </div>
 
-      <StaggerItem>
-        <div className="flex flex-wrap gap-4">
-          {STAT_CARDS.map((stat) => (
-            <DashboardStatCard
-              key={stat.key}
-              label={stat.label}
-              value={values[stat.key]}
-              icon={stat.icon}
-              iconBg={stat.iconBg}
-              iconColor={stat.iconColor}
-              href={stat.href}
-            />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {statCards.map((stat) => (
+          <Card
+            key={stat.label}
+            variant="glass"
+            className="bg-white border border-border-strong/50 shadow-xs p-4 flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-medium text-text-muted truncate">{stat.label}</span>
+                <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", stat.iconBg)}>
+                  <stat.icon size={13} />
+                </div>
+              </div>
+              <div className="text-xl font-bold text-text-primary">{stat.value}</div>
+            </div>
+            <div className="text-[9px] font-semibold mt-2.5 text-text-muted">{stat.hint}</div>
+          </Card>
+        ))}
+      </div>
+
+      <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs p-5">
+        <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider mb-4">
+          Candidate Pipeline
+        </h3>
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-y-3 lg:gap-y-0">
+          {pipeline.map((step, i) => (
+            <div key={step.label} className="contents">
+              {i > 0 && <PipelineFunnelArrow />}
+              <div className="flex-1 p-3.5 rounded-xl bg-surface/50 border border-border-subtle flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] font-semibold text-text-muted">{step.label}</span>
+                <span className="text-base font-bold text-text-primary mt-1">{step.value}</span>
+                {step.conversion && (
+                  <span className="text-[9px] font-semibold text-success mt-0.5">{step.conversion}</span>
+                )}
+              </div>
+            </div>
           ))}
         </div>
-      </StaggerItem>
+      </Card>
 
-      <StaggerItem>
-        <PipelineFunnel stages={funnelStages} reportHref="/admin/reports" />
-      </StaggerItem>
-
-      <StaggerItem>
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card variant="glass">
-            <CardHeader>
-              <CardTitle>Recruiter workload</CardTitle>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs flex flex-col justify-between overflow-hidden">
+          <div>
+            <CardHeader className="flex flex-row items-center justify-between border-b border-border-subtle px-5 py-4">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                Recent Enquiries
+              </CardTitle>
+              <Link href="/admin/leads" className="text-xs font-semibold text-brand-500 hover:underline">
+                View All
+              </Link>
             </CardHeader>
-            <CardContent className="pt-0">
-              {workload.length === 0 ? (
-                <p className="text-xs text-text-muted">No candidates assigned yet.</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs" aria-label="Recent enquiries">
+                <thead>
+                  <tr className="bg-surface/30 border-b border-border-subtle text-[10px] font-semibold uppercase text-text-muted">
+                    <th scope="col" className="px-4 py-2">Candidate</th>
+                    <th scope="col" className="px-4 py-2">Role Interest</th>
+                    <th scope="col" className="px-4 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
+                  {recentLeads.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-6 text-center text-text-muted">
+                        No enquiries yet
+                      </td>
+                    </tr>
+                  ) : (
+                    recentLeads.map((lead) => (
+                      <tr key={lead.id}>
+                        <td className="px-4 py-2.5 font-medium text-text-primary">{lead.name}</td>
+                        <td className="px-4 py-2.5 text-text-muted">
+                          {roleInterestFromNotes(lead.notes, lead.source)}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant={leadStatusVariant(lead.status)} className="text-[9px] px-1.5 py-0 capitalize">
+                            {lead.status.replace("_", " ")}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div className="border-t border-border-subtle p-3.5 text-center bg-surface/10">
+            <Link href="/admin/leads" className="text-xs font-semibold text-brand-500 hover:underline">
+              View all enquiries →
+            </Link>
+          </div>
+        </Card>
+
+        <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs flex flex-col justify-between overflow-hidden">
+          <div>
+            <CardHeader className="flex flex-row items-center justify-between border-b border-border-subtle px-5 py-4">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                Recruiter Assignments
+              </CardTitle>
+              <Link href="/admin/candidates" className="text-xs font-semibold text-brand-500 hover:underline">
+                View All
+              </Link>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs" aria-label="Recruiter assignments">
+                <thead>
+                  <tr className="bg-surface/30 border-b border-border-subtle text-[10px] font-semibold uppercase text-text-muted">
+                    <th scope="col" className="px-4 py-2">Candidate</th>
+                    <th scope="col" className="px-4 py-2">Assigned Recruiter</th>
+                    <th scope="col" className="px-4 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
+                  {assignments.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-6 text-center text-text-muted">
+                        No assignments yet
+                      </td>
+                    </tr>
+                  ) : (
+                    assignments.map((row) => (
+                      <tr key={row.candidateId}>
+                        <td className="px-4 py-2.5 font-medium text-text-primary">{row.candidateName}</td>
+                        <td className="px-4 py-2.5 text-text-muted">
+                          {(row.recruiterEmail.split("@")[0] ?? row.recruiterEmail)
+                            .split(/[._-]/)
+                            .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+                            .join(" ")}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant="success" className="text-[9px] px-1.5 py-0">
+                            Stage {row.journeyStage}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div className="border-t border-border-subtle p-3.5 text-center bg-surface/10">
+            <Link href="/admin/candidates" className="text-xs font-semibold text-brand-500 hover:underline">
+              Manage assignments →
+            </Link>
+          </div>
+        </Card>
+
+        <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs flex flex-col justify-between overflow-hidden">
+          <div>
+            <CardHeader className="flex flex-row items-center justify-between border-b border-border-subtle px-5 py-4">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                Marketing Progress
+              </CardTitle>
+              <Link href="/admin/reports" className="text-xs font-semibold text-brand-500 hover:underline">
+                View Report
+              </Link>
+            </CardHeader>
+            <div className="p-4 space-y-3.5">
+              {marketingProgress.length === 0 ? (
+                <p className="text-xs text-text-muted text-center py-4">No candidate marketing data yet</p>
               ) : (
-                <div className="space-y-3">
-                  {workload.map((r) => (
-                    <div key={r.email} className="flex items-center justify-between">
-                      <span className="text-sm text-text-primary">{r.email}</span>
-                      <Badge variant="default">
-                        {r.count} candidate{r.count === 1 ? "" : "s"}
-                      </Badge>
+                marketingProgress.map((row) => (
+                  <div key={row.candidateId}>
+                    <div className="flex items-center justify-between text-xs font-semibold text-text-primary mb-1">
+                      <span>{row.candidateName}</span>
+                      <span className="text-[10px] text-text-muted">
+                        {row.appCount} Apps · {row.interviews} Int · {row.assessments} Assm
+                      </span>
                     </div>
-                  ))}
-                </div>
+                    <div className="w-full h-1.5 bg-surface rounded-full overflow-hidden flex">
+                      <div className="h-full bg-brand-500" style={{ width: `${row.appliedPct}%` }} />
+                      <div className="h-full bg-success" style={{ width: `${row.interviewPct}%` }} />
+                    </div>
+                  </div>
+                ))
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+          <div className="border-t border-border-subtle p-3.5 text-center bg-surface/10">
+            <Link href="/admin/candidates" className="text-xs font-semibold text-brand-500 hover:underline">
+              View all candidates →
+            </Link>
+          </div>
+        </Card>
+      </div>
 
-          <Card variant="glass">
-            <CardHeader>
-              <CardTitle>Recent activity</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {activityItems.length === 0 ? (
-                <p className="text-xs text-text-muted">No recent activity.</p>
-              ) : (
-                <div className="space-y-3">
-                  {activityItems.map((a) => {
-                    const Icon = a.icon;
-                    return (
-                      <div key={a.id} className="flex items-start gap-2.5">
-                        <Icon
-                          size={13}
-                          className="text-text-muted mt-0.5 flex-shrink-0"
-                          aria-hidden="true"
-                        />
-                        <div>
-                          <div className="text-xs text-text-primary">{a.text}</div>
-                          <div className="text-[11px] text-text-muted">
-                            {formatDateTime(a.when)}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs p-5 flex flex-col justify-between">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary mb-4">
+              Admin Notifications
+            </h3>
+            <div className="space-y-3.5">
+              {recentAudit.slice(0, 4).map((a) => (
+                <div key={a.id} className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-surface flex items-center justify-center text-text-muted flex-shrink-0">
+                    <Lock size={12} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-text-primary">
+                      {a.action === "admin_sign_in"
+                        ? "Staff member signed in"
+                        : a.action.replace(/_/g, " ")}
+                    </div>
+                    <div className="text-[9px] text-text-muted mt-0.5">{formatDateTime(a.createdAt)}</div>
+                  </div>
                 </div>
+              ))}
+              {recentMessages.slice(0, 2).map((m) => (
+                <Link
+                  key={m.id}
+                  href={`/admin/candidates/${m.candidateId}?tab=Messages`}
+                  className="flex items-start gap-3 hover:opacity-80 transition-opacity"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-brand-50 flex items-center justify-center text-brand-500 flex-shrink-0">
+                    <MessageCircle size={12} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-text-primary">
+                      {candidateNames[m.candidateId] ?? "Candidate"} sent a message
+                    </div>
+                    <div className="text-[9px] text-text-muted mt-0.5 line-clamp-1">{m.body}</div>
+                    <div className="text-[9px] text-brand-500 mt-0.5 font-semibold">Open thread →</div>
+                    <div className="text-[9px] text-text-muted mt-0.5">{formatDateTime(m.sentAt)}</div>
+                  </div>
+                </Link>
+              ))}
+              {recentAudit.length === 0 && recentMessages.length === 0 && (
+                <p className="text-xs text-text-muted">No recent notifications</p>
               )}
+            </div>
+          </div>
+          <div className="border-t border-border-subtle pt-4 mt-5">
+            <Link href="/admin/candidates" className="text-xs font-semibold text-brand-500 hover:underline">
+              View candidates →
+            </Link>
+          </div>
+        </Card>
+
+        <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs p-5">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary mb-4">
+            Conversion Trend (Weekly)
+          </h3>
+          <div className="h-48 w-full text-xs">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={weeklyTrend} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={9} tickLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} allowDecimals={false} />
+                <ChartTooltip />
+                <Line type="monotone" dataKey="Enquiries" stroke="#64748b" strokeWidth={1.5} dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="Consultations" stroke="#3b82f6" strokeWidth={1.5} dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="Portal" stroke="#2563eb" strokeWidth={1.5} dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="Marketing" stroke="#10b981" strokeWidth={1.5} dot={{ r: 2 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex items-center justify-center gap-3.5 mt-3 flex-wrap text-[9px] font-semibold text-text-muted">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" /> Enquiry
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" /> Consultation
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" /> Portal
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" /> Marketing
+            </span>
+          </div>
+        </Card>
+
+        <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs p-5 flex flex-col justify-between">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary mb-4">
+              Quick Reports
+            </h3>
+            <div className="space-y-2">
               <Link
                 href="/admin/reports"
-                className="inline-block mt-4 text-xs font-medium text-brand-500 hover:text-brand-600 transition-colors"
+                className="flex items-center justify-between p-3 rounded-xl border border-border-strong/30 hover:bg-surface text-xs font-semibold text-text-primary transition-colors"
               >
-                View full reports
+                <span className="flex items-center gap-2">
+                  <FileText size={14} className="text-brand-500" />
+                  <span>Enquiry Source Report</span>
+                </span>
+                <ChevronRight size={14} className="text-text-muted/60" />
               </Link>
-            </CardContent>
-          </Card>
-        </div>
-      </StaggerItem>
-    </StaggerChildren>
+              <Link
+                href="/admin/reports"
+                className="flex items-center justify-between p-3 rounded-xl border border-border-strong/30 hover:bg-surface text-xs font-semibold text-text-primary transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <TrendingUp size={14} className="text-brand-500" />
+                  <span>Conversion Funnel Report</span>
+                </span>
+                <ChevronRight size={14} className="text-text-muted/60" />
+              </Link>
+              <Link
+                href="/admin/reports"
+                className="flex items-center justify-between p-3 rounded-xl border border-border-strong/30 hover:bg-surface text-xs font-semibold text-text-primary transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Users size={14} className="text-brand-500" />
+                  <span>Recruiter Performance Report</span>
+                </span>
+                <ChevronRight size={14} className="text-text-muted/60" />
+              </Link>
+              <Link
+                href="/admin/reports"
+                className="flex items-center justify-between p-3 rounded-xl border border-border-strong/30 hover:bg-surface text-xs font-semibold text-text-primary transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Inbox size={14} className="text-brand-500" />
+                  <span>Marketing Activity Report</span>
+                </span>
+                <ChevronRight size={14} className="text-text-muted/60" />
+              </Link>
+            </div>
+          </div>
+          <div className="border-t border-border-subtle pt-4 mt-5">
+            <Link href="/admin/reports" className="text-xs font-semibold text-brand-500 hover:underline">
+              View all reports →
+            </Link>
+          </div>
+        </Card>
+      </div>
+    </div>
   );
 }

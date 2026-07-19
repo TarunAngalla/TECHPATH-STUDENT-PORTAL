@@ -29,6 +29,17 @@ export async function createAnnouncement(data: z.infer<typeof createSchema>) {
   const parsed = createSchema.safeParse(data);
   if (!parsed.success) return { error: "Invalid input" };
 
+  if (parsed.data.targetCandidateId) {
+    const { getStaffScope } = await import("@/lib/auth/staff-scope");
+    const { assertCandidateInScope } = await import("@/lib/db/queries/admin/candidates");
+    if (!(await assertCandidateInScope(parsed.data.targetCandidateId, getStaffScope(session)))) {
+      return { error: "Forbidden" };
+    }
+  } else if (session.role === "recruiter") {
+    // Recruiters may only broadcast to their own book via targeted announcements
+    return { error: "Recruiters must target one of their candidates" };
+  }
+
   await db.insert(announcements).values({
     title: parsed.data.title,
     body: parsed.data.body,

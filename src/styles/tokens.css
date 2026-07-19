@@ -3,21 +3,21 @@
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --font-display: var(--font-playfair), var(--font-jakarta), ui-serif, Georgia, serif;
 
-  --color-brand-50: #eef8fb;
-  --color-brand-100: #d5eef5;
-  --color-brand-500: #0e7c7b;
-  --color-brand-600: #0f4c81;
-  --color-brand-700: #0a3a66;
-  --color-accent: #6b4eff;
-  --color-accent-soft: #ede9ff;
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #2563eb;
+  --color-brand-600: #1d4ed8;
+  --color-brand-700: #1e40af;
+  --color-accent: #2563eb;
+  --color-accent-soft: #eff6ff;
 
-  --color-surface: #f4f7fb;
-  --color-surface-glass: rgba(255, 255, 255, 0.72);
+  --color-surface: #f8fafc;
+  --color-surface-glass: rgba(255, 255, 255, 0.95);
   --color-surface-elevated: #ffffff;
-  --color-border-subtle: rgba(15, 76, 129, 0.08);
-  --color-border-strong: rgba(15, 76, 129, 0.16);
+  --color-border-subtle: #f1f5f9;
+  --color-border-strong: #e2e8f0;
 
-  --color-text-primary: #0a1628;
+  --color-text-primary: #0f172a;
   --color-text-muted: #64748b;
   --color-text-inverse: #ffffff;
 
@@ -40,9 +40,6 @@
 }
 
 :root {
-  --brand-gradient: linear-gradient(135deg, #0f4c81 0%, #0e7c7b 50%, #1b9aaa 100%);
-  --mesh-gradient: radial-gradient(at 0% 0%, rgba(107, 78, 255, 0.12) 0%, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(14, 124, 123, 0.15) 0%, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(15, 76, 129, 0.1) 0%, transparent 50%),
-    var(--color-surface);
+  --brand-gradient: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #60a5fa 100%);
+  --mesh-gradient: var(--color-surface);
 }

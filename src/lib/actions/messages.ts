@@ -1,84 +1,105 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireCandidateAuth, requireStaffAuth } from "@/lib/auth/guards";
+import { requireAuth } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
-import { getMessagesByCandidateId } from "@/lib/db/queries/shared/messages";
-import { messageReads, messages } from "@/lib/db/schema";
+import {
+  getConversationMessages,
+  markConversationMessagesRead,
+} from "@/lib/db/queries/shared/messages";
+import { candidates, messages, users } from "@/lib/db/schema";
 
 const sendSchema = z.object({
-  candidateId: z.string().uuid(),
+  receiverId: z.string().uuid(),
   body: z.string().min(1),
 });
 
-export async function fetchCandidateMessages(candidateId: string) {
-  const session = await requireCandidateAuth();
-  if (session.candidateId !== candidateId) return { error: "Forbidden" as const };
+async function validateMessagingPermission(senderId: string, senderRole: string, receiverId: string) {
+  const [receiver] = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(eq(users.id, receiverId))
+    .limit(1);
 
-  const rows = await getMessagesByCandidateId(candidateId);
+  if (!receiver) return false;
+
+  if (senderRole === "candidate") {
+    if (receiver.role === "admin") return true;
+    if (receiver.role === "recruiter") {
+      const [cand] = await db
+        .select({ recruiterId: candidates.recruiterId })
+        .from(candidates)
+        .where(eq(candidates.userId, senderId))
+        .limit(1);
+      return cand?.recruiterId === receiver.id;
+    }
+    return false;
+  }
+
+  if (senderRole === "recruiter") {
+    if (receiver.role === "admin") return true;
+    if (receiver.role === "candidate") {
+      const [cand] = await db
+        .select({ id: candidates.id })
+        .from(candidates)
+        .where(and(eq(candidates.userId, receiver.id), eq(candidates.recruiterId, senderId)))
+        .limit(1);
+      return !!cand;
+    }
+    return false;
+  }
+
+  if (senderRole === "admin") {
+    return receiver.role === "candidate" || receiver.role === "recruiter";
+  }
+
+  return false;
+}
+
+export async function fetchConversation(partnerId: string) {
+  const session = await requireAuth();
+  const allowed = await validateMessagingPermission(session.userId, session.role, partnerId);
+  if (!allowed) return { error: "Forbidden" as const };
+
+  const rows = await getConversationMessages(session.userId, partnerId);
   return {
     messages: rows.map((m) => ({
       id: m.id,
-      senderRole: m.senderRole as "candidate" | "recruiter",
+      senderId: m.senderId,
+      receiverId: m.receiverId,
       body: m.body,
       sentAt: m.sentAt,
     })),
   };
 }
 
-export async function sendCandidateMessage(candidateId: string, body: string) {
-  const session = await requireCandidateAuth();
-  if (session.candidateId !== candidateId) return { error: "Forbidden" };
-
-  const parsed = sendSchema.safeParse({ candidateId, body });
+export async function sendMessageAction(receiverId: string, body: string) {
+  const session = await requireAuth();
+  const parsed = sendSchema.safeParse({ receiverId, body });
   if (!parsed.success) return { error: "Invalid message" };
 
+  const allowed = await validateMessagingPermission(session.userId, session.role, receiverId);
+  if (!allowed) return { error: "Forbidden" };
+
   await db.insert(messages).values({
-    candidateId,
-    senderRole: "candidate",
     senderId: session.userId,
+    receiverId,
     body,
   });
 
   revalidatePath("/messages");
-  revalidatePath(`/admin/candidates/${candidateId}`);
+  revalidatePath("/admin/messages");
   return {};
 }
 
-export async function sendRecruiterMessage(candidateId: string, body: string) {
-  const session = await requireStaffAuth();
-  const parsed = sendSchema.safeParse({ candidateId, body });
-  if (!parsed.success) return { error: "Invalid message" };
+export async function markConversationReadAction(partnerId: string) {
+  const session = await requireAuth();
+  const allowed = await validateMessagingPermission(session.userId, session.role, partnerId);
+  if (!allowed) return;
 
-  await db.insert(messages).values({
-    candidateId,
-    senderRole: "recruiter",
-    senderId: session.userId,
-    body,
-  });
-
+  await markConversationMessagesRead(partnerId, session.userId);
   revalidatePath("/messages");
-  revalidatePath(`/admin/candidates/${candidateId}`);
-  return {};
-}
-
-export async function markMessagesRead(candidateId: string) {
-  const session = await requireCandidateAuth();
-  if (session.candidateId !== candidateId) return;
-
-  const unread = await db
-    .select({ id: messages.id })
-    .from(messages)
-    .where(eq(messages.candidateId, candidateId));
-
-  for (const msg of unread) {
-    await db
-      .insert(messageReads)
-      .values({ messageId: msg.id, userId: session.userId, candidateId })
-      .onConflictDoNothing();
-  }
-
-  revalidatePath("/messages");
+  revalidatePath("/admin/messages");
 }

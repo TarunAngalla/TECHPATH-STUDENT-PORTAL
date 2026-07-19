@@ -10,6 +10,8 @@ import { CandidatePortalShell } from "@/components/candidate/CandidatePortalShel
 
 export default async function CandidatePortalLayout({ children }: { children: React.ReactNode }) {
   const session = await requireCandidateAuth();
+  if (session.firstLogin) redirect("/reset-password");
+
   const candidate = await getCandidateByUserId(session.userId);
 
   if (!candidate) redirect("/login");

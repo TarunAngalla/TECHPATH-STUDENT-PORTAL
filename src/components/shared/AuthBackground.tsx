@@ -1,5 +1,3 @@
-import { AuthTaglineMarquee } from "./AuthTaglineMarquee";
-
 export function AuthBackground() {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
@@ -66,8 +64,6 @@ export function AuthBackground() {
           backgroundSize: "48px 48px",
         }}
       />
-
-      <AuthTaglineMarquee />
     </div>
   );
 }

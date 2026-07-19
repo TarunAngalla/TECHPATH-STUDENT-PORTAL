@@ -7,6 +7,7 @@ export interface SessionData {
   email: string;
   role: UserRole;
   candidateId?: string;
+  firstLogin?: boolean;
   isLoggedIn: boolean;
 }
 
@@ -15,6 +16,7 @@ export const defaultSession: SessionData = {
   email: "",
   role: "candidate",
   isLoggedIn: false,
+  firstLogin: false,
 };
 
 export function getSessionOptions(): SessionOptions {

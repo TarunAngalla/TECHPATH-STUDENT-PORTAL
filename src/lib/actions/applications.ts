@@ -52,12 +52,18 @@ export async function saveApplicationComment(applicationId: string, comment: str
 }
 
 export async function updateApplicationAdmin(data: z.infer<typeof adminUpdateSchema>) {
-  await requireStaffAuth();
+  const session = await requireStaffAuth();
   const parsed = adminUpdateSchema.safeParse(data);
   if (!parsed.success) return { error: "Invalid input" };
 
   const app = await getApplicationById(parsed.data.applicationId);
   if (!app) return { error: "Not found" };
+
+  const { getStaffScope } = await import("@/lib/auth/staff-scope");
+  const { assertCandidateInScope } = await import("@/lib/db/queries/admin/candidates");
+  if (!(await assertCandidateInScope(app.candidateId, getStaffScope(session)))) {
+    return { error: "Forbidden" };
+  }
 
   await db
     .update(applications)
@@ -79,14 +85,21 @@ export async function updateApplicationAdmin(data: z.infer<typeof adminUpdateSch
   revalidatePath("/applications");
   revalidatePath("/upcoming");
   revalidatePath("/dashboard");
+  revalidatePath("/admin/dashboard");
   revalidatePath(`/admin/candidates/${app.candidateId}`);
   return {};
 }
 
 export async function createApplication(data: z.infer<typeof createSchema>) {
-  await requireStaffAuth();
+  const session = await requireStaffAuth();
   const parsed = createSchema.safeParse(data);
   if (!parsed.success) return { error: "Invalid input" };
+
+  const { getStaffScope } = await import("@/lib/auth/staff-scope");
+  const { assertCandidateInScope } = await import("@/lib/db/queries/admin/candidates");
+  if (!(await assertCandidateInScope(parsed.data.candidateId, getStaffScope(session)))) {
+    return { error: "Forbidden" };
+  }
 
   const existing = await db
     .select({ appNo: applications.appNo })
@@ -105,6 +118,7 @@ export async function createApplication(data: z.infer<typeof createSchema>) {
   });
 
   revalidatePath(`/admin/candidates/${parsed.data.candidateId}`);
+  revalidatePath("/admin/dashboard");
   revalidatePath("/applications");
   revalidatePath("/dashboard");
   return {};

@@ -10,16 +10,17 @@ export async function getCandidateContext() {
   const candidate = await getCandidateByUserId(session.userId);
   if (!candidate) redirect("/login");
 
-  let recruiter: { name: string; email: string } | null = null;
+  let recruiter: { id: string; name: string; email: string } | null = null;
   if (candidate.recruiterId) {
     const [row] = await db
-      .select({ email: users.email })
+      .select({ id: users.id, email: users.email })
       .from(users)
       .where(eq(users.id, candidate.recruiterId))
       .limit(1);
     if (row) {
       const local = row.email.split("@")[0] ?? "Recruiter";
       recruiter = {
+        id: row.id,
         name: local.replace(/\./g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
         email: row.email,
       };

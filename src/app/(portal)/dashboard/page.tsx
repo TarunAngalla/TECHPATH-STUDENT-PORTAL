@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const [stats, announcements, checklist] = await Promise.all([
     getDashboardStatsForCandidate(candidate.id),
     getAnnouncementsForCandidate(candidate.id),
-    getOnboardingChecklist(candidate.id, candidate.userId),
+    getOnboardingChecklist(candidate.id),
   ]);
 
   const latestUpdate = stats.applications.reduce<Date | null>((latest, app) => {
@@ -26,6 +26,7 @@ export default async function DashboardPage() {
 
   return (
     <CandidateDashboard
+      candidateId={candidate.id}
       candidateName={candidate.fullName}
       journeyStage={candidate.journeyStage}
       profileLastUpdated={profileLastUpdated || "—"}

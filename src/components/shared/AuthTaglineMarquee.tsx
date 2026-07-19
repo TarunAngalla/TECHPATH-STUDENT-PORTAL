@@ -34,10 +34,10 @@ function MarqueeRow({
         {items.map((line, i) => (
           <span
             key={`${line}-${i}`}
-            className="inline-flex items-center gap-12 text-[clamp(1.75rem,4vw,3.25rem)] font-display font-semibold tracking-tight text-brand-600/20 select-none"
+            className="inline-flex items-center gap-12 text-xs font-bold uppercase tracking-widest text-brand-600/5 select-none"
           >
             {line}
-            <span className="text-accent/30">✦</span>
+            <span className="text-accent/10">✦</span>
           </span>
         ))}
       </div>
@@ -57,7 +57,7 @@ export function AuthTaglineMarquee() {
         {AUTH_TAGLINES.map((line) => (
           <p
             key={line}
-            className="text-2xl sm:text-3xl font-display font-semibold text-brand-600/15 text-center leading-snug"
+            className="text-xs font-bold uppercase tracking-widest text-brand-600/5 text-center"
           >
             {line}
           </p>

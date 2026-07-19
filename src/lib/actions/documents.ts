@@ -3,7 +3,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireStaffAuth } from "@/lib/auth/guards";
+import { requireStaffAuth, requireCandidateAuth } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { documents } from "@/lib/db/schema";
 import { documentCategories } from "@/lib/db/schema";
@@ -50,5 +50,38 @@ export async function deleteDocument(documentId: string, candidateId: string) {
 
   revalidatePath("/documents");
   revalidatePath(`/admin/candidates/${candidateId}`);
+  return {};
+}
+
+export async function uploadResumeAsCandidate(formData: FormData) {
+  const session = await requireCandidateAuth();
+  const file = formData.get("file") as File | null;
+  if (!file) return { error: "No file provided" };
+
+  const allowedTypes = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
+  if (!allowedTypes.includes(file.type)) {
+    return { error: "Only PDF, DOC, and DOCX files are allowed." };
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    return { error: "File size must be under 5MB." };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const fileUrl = await uploadDocumentFile(session.candidateId!, file.name, buffer, file.type);
+
+  await db.insert(documents).values({
+    candidateId: session.candidateId!,
+    name: file.name,
+    category: "resume",
+    fileUrl,
+  });
+
+  revalidatePath("/documents");
+  revalidatePath("/dashboard");
   return {};
 }
