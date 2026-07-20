@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { Application } from "@/lib/db/schema";
 import { CANDIDATE_PAGE_TITLES, type CandidateNavKey } from "@/lib/constants/candidate-nav";
+import { useScrollToTopOnRouteChange } from "@/lib/hooks/useScrollToTopOnRouteChange";
 import { PageTransition } from "@/components/motion/PageTransition";
 import { CandidateSidebar } from "./CandidateSidebar";
 import { CandidateTopbar } from "./CandidateTopbar";
@@ -31,6 +32,7 @@ export function CandidatePortalShell({
   applications: Application[];
 }) {
   const pathname = usePathname();
+  useScrollToTopOnRouteChange();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const navKey = pathToNavKey(pathname);
