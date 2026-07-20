@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ADMIN_PAGE_TITLES, adminPathToNavKey } from "@/lib/constants/admin-nav";
 import type { UserRole } from "@/lib/auth/session-config";
+import { useScrollToTopOnRouteChange } from "@/lib/hooks/useScrollToTopOnRouteChange";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminTopbar } from "./AdminTopbar";
 
@@ -25,6 +26,7 @@ export function AdminPortalShell({
   unreadMessages: number;
 }) {
   const pathname = usePathname();
+  useScrollToTopOnRouteChange();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const navKey = adminPathToNavKey(pathname);
@@ -51,7 +53,9 @@ export function AdminPortalShell({
           collapsed={collapsed}
           setCollapsed={setCollapsed}
         />
-        <main className="px-5 sm:px-8 py-6 max-w-[1500px] mx-auto w-full">{children}</main>
+        <main id="main-content" className="px-5 sm:px-8 py-6 max-w-[1500px] mx-auto w-full" tabIndex={-1}>
+          {children}
+        </main>
       </div>
     </div>
   );
