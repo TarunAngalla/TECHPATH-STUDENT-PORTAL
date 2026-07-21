@@ -88,6 +88,9 @@ async function candidateForInvite(candidateId: string) {
 
 export async function resendCandidateInviteAction(candidateId: string) {
   const admin = await requireAdminAuth();
+  if (!serverFeatures.secureInvites) {
+    return { error: "Secure invitations are disabled. Enable ENABLE_SECURE_INVITES." };
+  }
   const candidate = await candidateForInvite(candidateId);
   if (!candidate) return { error: "Candidate not found." };
   if (candidate.accountState !== "pending_setup") {

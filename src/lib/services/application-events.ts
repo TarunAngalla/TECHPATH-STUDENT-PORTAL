@@ -1,7 +1,18 @@
-import { count, eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { applicationEvents, applications } from "@/lib/db/schema";
 import type { ApplicationStatus } from "@/lib/constants/status-meta";
+
+function nextAppNo(existingAppNos: string[]) {
+  let max = 0;
+  for (const value of existingAppNos) {
+    const match = /^APP-(\d+)$/i.exec(value.trim());
+    if (!match) continue;
+    const parsed = Number(match[1]);
+    if (Number.isFinite(parsed) && parsed > max) max = parsed;
+  }
+  return `APP-${String(max + 1).padStart(3, "0")}`;
+}
 
 export async function createApplicationWithInitialEvent(input: {
   candidateId: string; companyName: string; roleTitle: string; dateApplied: string;
@@ -9,8 +20,12 @@ export async function createApplicationWithInitialEvent(input: {
 }) {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${input.candidateId}, 0))`);
-    const [row] = await tx.select({ total: count() }).from(applications).where(eq(applications.candidateId, input.candidateId));
-    const appNo = `APP-${String(Number(row?.total ?? 0) + 1).padStart(3, "0")}`;
+    const existing = await tx
+      .select({ appNo: applications.appNo })
+      .from(applications)
+      .where(eq(applications.candidateId, input.candidateId))
+      .orderBy(desc(applications.createdAt));
+    const appNo = nextAppNo(existing.map((row) => row.appNo));
     const [application] = await tx.insert(applications).values({
       candidateId: input.candidateId, appNo, companyName: input.companyName,
       roleTitle: input.roleTitle, dateApplied: input.dateApplied, status: input.status,

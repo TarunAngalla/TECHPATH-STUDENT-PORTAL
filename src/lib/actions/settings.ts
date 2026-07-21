@@ -19,30 +19,44 @@ export async function updateCandidatePhone(phone: string) {
   return {};
 }
 
-const staffPwSchema = z.object({
-  currentPassword: z.string().min(1),
-  newPassword: z.string().min(8),
-  confirmPassword: z.string().min(8),
-});
+const staffPwSchema = z
+  .object({
+    currentPassword: z.string().min(1),
+    newPassword: z
+      .string()
+      .min(10, "Password must be at least 10 characters.")
+      .max(128)
+      .regex(/[A-Z]/, "Include at least one uppercase letter.")
+      .regex(/[a-z]/, "Include at least one lowercase letter.")
+      .regex(/[0-9]/, "Include at least one number."),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords don't match",
+  });
 
 export async function updateStaffPassword(data: z.infer<typeof staffPwSchema>) {
   const session = await requireStaffAuth();
   const parsed = staffPwSchema.safeParse(data);
-  if (!parsed.success) return { error: "Invalid input" };
-  if (parsed.data.newPassword !== parsed.data.confirmPassword) {
-    return { error: "Passwords don't match" };
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
   const { authenticateUser } = await import("@/lib/auth/password");
   const user = await authenticateUser(session.email, parsed.data.currentPassword);
   if (!user) return { error: "Current password is incorrect" };
 
-  await changePassword({
+  const updated = await changePassword({
     userId: session.userId,
     newPassword: parsed.data.newPassword,
     method: "self_service",
     changedByUserId: session.userId,
+    invalidateSessions: true,
   });
+
+  const { updateCandidateSessionState } = await import("@/lib/auth/session");
+  await updateCandidateSessionState({ sessionVersion: updated.sessionVersion });
 
   revalidatePath("/admin/settings");
   return {};

@@ -1,10 +1,12 @@
--- LEGACY REFERENCE ONLY
--- The canonical schema is src/lib/db/schema.ts plus ordered files in drizzle/.
--- Use `npm run db:migrate`; do not apply this file to shared or production databases.
+-- LEGACY REFERENCE ONLY — DO NOT APPLY
+-- Canonical schema: src/lib/db/schema.ts + ordered drizzle/0000–0003 migrations.
+-- Use `npm run db:migrate`. This dump is historical and incomplete relative to Phase 0–2
+-- (missing account_state, invites, NDA foundations, application_events, consultation fields,
+-- email_delivery_logs, rate limits, and the corrected messages/message_reads shape).
+-- Client-aligned scope (NDA gate, secure invites, enquiry workflow) supersedes older
+-- "no NDA" notes that may appear in commented sections below.
 
--- The Tech Path — Database Schema (PostgreSQL)
--- Reflects REQUIREMENTS.md exactly. No NDA tables. No separate
--- interviews/assessments tables — those concepts live on `applications`.
+-- The Tech Path — Database Schema (PostgreSQL) [OUTDATED SNAPSHOT]
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto"; -- for gen_random_uuid()
 

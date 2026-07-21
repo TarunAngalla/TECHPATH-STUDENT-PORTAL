@@ -19,6 +19,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { sendCandidateInviteEmail } from "@/lib/email";
+import { serverFeatures } from "@/lib/config/features";
 import { createCandidateInvite } from "@/lib/services/candidate-invites";
 
 const createSchema = z.object({
@@ -30,6 +31,9 @@ const createSchema = z.object({
 
 export async function createCandidateFromLead(data: z.infer<typeof createSchema>) {
   const admin = await requireAdminAuth();
+  if (!serverFeatures.secureInvites) {
+    return { error: "Secure invitations are disabled. Enable ENABLE_SECURE_INVITES." };
+  }
   const parsed = createSchema.safeParse(data);
   if (!parsed.success) return { error: "Invalid input." };
 
