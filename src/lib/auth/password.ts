@@ -21,7 +21,7 @@ export async function changePassword({
   changedByUserId,
   clearFirstLogin = false,
   nextAccountState,
-  invalidateSessions = false,
+  invalidateSessions = true,
 }: {
   userId: string;
   newPassword: string;
@@ -33,8 +33,8 @@ export async function changePassword({
 }) {
   const passwordHash = await hashPassword(newPassword);
 
-  await db.transaction(async (tx) => {
-    await tx
+  const [updated] = await db.transaction(async (tx) => {
+    const [row] = await tx
       .update(users)
       .set({
         passwordHash,
@@ -42,14 +42,21 @@ export async function changePassword({
         ...(nextAccountState ? { accountState: nextAccountState } : {}),
         ...(invalidateSessions ? { sessionVersion: sql`${users.sessionVersion} + 1` } : {}),
       })
-      .where(eq(users.id, userId));
+      .where(eq(users.id, userId))
+      .returning({ sessionVersion: users.sessionVersion, accountState: users.accountState });
 
     await tx.insert(passwordChangeLog).values({
       userId,
       method,
       changedByUserId,
     });
+    return [row];
   });
+
+  return {
+    sessionVersion: updated.sessionVersion,
+    accountState: updated.accountState,
+  };
 }
 
 export async function authenticateUser(email: string, password: string) {

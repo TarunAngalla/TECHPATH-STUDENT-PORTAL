@@ -104,6 +104,27 @@ export async function enforcePublicEnquiryRateLimit(input: {
   return ipAllowed && emailAllowed;
 }
 
+/** Rate-limit login attempts by IP and email (failed and successful attempts consume quota). */
+export async function enforceLoginRateLimit(input: {
+  clientKey: string;
+  email: string;
+}) {
+  const ipLimit = Number(process.env.LOGIN_IP_LIMIT ?? 20);
+  const emailLimit = Number(process.env.LOGIN_EMAIL_LIMIT ?? 10);
+  const windowMinutes = Number(process.env.LOGIN_RATE_WINDOW_MINUTES ?? 15);
+  const safeIpLimit = Number.isFinite(ipLimit) && ipLimit > 0 ? ipLimit : 20;
+  const safeEmailLimit = Number.isFinite(emailLimit) && emailLimit > 0 ? emailLimit : 10;
+  const safeWindow = Number.isFinite(windowMinutes) && windowMinutes > 0 ? windowMinutes : 15;
+
+  const email = normalizedEmail(input.email);
+  const [ipAllowed, emailAllowed] = await Promise.all([
+    consumeRateLimit(hashRateLimitKey("ip", `login:${input.clientKey}`), safeIpLimit, safeWindow),
+    consumeRateLimit(hashRateLimitKey("email", `login:${email}`), safeEmailLimit, safeWindow),
+  ]);
+
+  return ipAllowed && emailAllowed;
+}
+
 function rejectedCooldownDays() {
   const configured = Number(process.env.PUBLIC_ENQUIRY_REAPPLICATION_DAYS ?? 30);
   return Number.isFinite(configured) && configured >= 0 ? configured : 30;

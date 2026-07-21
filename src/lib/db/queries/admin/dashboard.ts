@@ -38,18 +38,22 @@ export async function getUnreadStaffMessageCount(scope: StaffScope) {
 
 export async function getDashboardStats(scope?: StaffScope) {
   const scopeFilter = candidateScopeFilter(scope);
+  const canViewEnquiries = !scope || scope.seesAllCandidates;
 
-  const [newLeads] = await db
-    .select({ count: count() })
-    .from(leads)
-    .where(eq(leads.status, "new"));
+  const [newLeads] = canViewEnquiries
+    ? await db.select({ count: count() }).from(leads).where(eq(leads.status, "new"))
+    : [{ count: 0 }];
 
-  const [consultationLeads] = await db
-    .select({ count: count() })
-    .from(leads)
-    .where(eq(leads.source, "consultation_booked"));
+  const [consultationLeads] = canViewEnquiries
+    ? await db
+        .select({ count: count() })
+        .from(leads)
+        .where(eq(leads.source, "consultation_booked"))
+    : [{ count: 0 }];
 
-  const [allLeadsCount] = await db.select({ count: count() }).from(leads);
+  const [allLeadsCount] = canViewEnquiries
+    ? await db.select({ count: count() }).from(leads)
+    : [{ count: 0 }];
 
   const [activeCandidatesRow] = await db
     .select({ count: count() })
@@ -112,7 +116,9 @@ export async function getDashboardStats(scope?: StaffScope) {
     .from(users)
     .where(eq(users.role, "recruiter"));
 
-  const recentAudit = await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(10);
+  const recentAudit = canViewEnquiries
+    ? await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(10)
+    : [];
 
   const recentMessages: {
     id: string;
@@ -156,19 +162,21 @@ export async function getDashboardStats(scope?: StaffScope) {
 
   const candidateList = await getCandidatesList(scope);
 
-  const recentLeads = await db
-    .select({
-      id: leads.id,
-      name: leads.name,
-      email: leads.email,
-      source: leads.source,
-      status: leads.status,
-      notes: leads.notes,
-      createdAt: leads.createdAt,
-    })
-    .from(leads)
-    .orderBy(desc(leads.createdAt))
-    .limit(6);
+  const recentLeads = canViewEnquiries
+    ? await db
+        .select({
+          id: leads.id,
+          name: leads.name,
+          email: leads.email,
+          source: leads.source,
+          status: leads.status,
+          notes: leads.notes,
+          createdAt: leads.createdAt,
+        })
+        .from(leads)
+        .orderBy(desc(leads.createdAt))
+        .limit(6)
+    : [];
 
   const assignments = candidateList
     .filter((c) => c.recruiterId)
@@ -217,10 +225,12 @@ export async function getDashboardStats(scope?: StaffScope) {
     const end = new Date(start);
     end.setDate(end.getDate() + 7);
 
-    const leadRows = await db
-      .select({ source: leads.source, createdAt: leads.createdAt })
-      .from(leads)
-      .where(and(gte(leads.createdAt, start), lt(leads.createdAt, end)));
+    const leadRows = canViewEnquiries
+      ? await db
+          .select({ source: leads.source, createdAt: leads.createdAt })
+          .from(leads)
+          .where(and(gte(leads.createdAt, start), lt(leads.createdAt, end)))
+      : [];
 
     const candidatesCreated = await db
       .select({ journeyStage: candidates.journeyStage, createdAt: candidates.createdAt })

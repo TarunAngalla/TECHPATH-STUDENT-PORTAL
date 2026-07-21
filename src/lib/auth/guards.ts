@@ -29,6 +29,10 @@ export async function requireAuth(allowedRoles?: UserRole[]) {
   ) {
     redirect("/api/auth/logout?next=/login");
   }
+  if (dbUser.accountState === "suspended") {
+    if (dbUser.role === "candidate") redirect("/account-suspended");
+    redirect("/api/auth/logout?next=/login");
+  }
   if (allowedRoles && !allowedRoles.includes(dbUser.role as UserRole)) redirect("/login");
   return {
     ...session,

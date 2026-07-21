@@ -3,13 +3,29 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireAuth } from "@/lib/auth/guards";
+import {
+  requireAuth,
+  requireCandidatePortalAccess,
+  requireStaffAuth,
+} from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
   getConversationMessages,
   markConversationMessagesRead,
 } from "@/lib/db/queries/shared/messages";
 import { candidates, messages, users } from "@/lib/db/schema";
+import type { UserRole } from "@/lib/auth/session-config";
+
+async function requireMessagingSession() {
+  const session = await requireAuth();
+  if (session.role === "candidate") {
+    return requireCandidatePortalAccess();
+  }
+  if (session.role === "recruiter" || session.role === "admin") {
+    return requireStaffAuth();
+  }
+  return session;
+}
 
 const sendSchema = z.object({
   receiverId: z.string().uuid(),
@@ -59,8 +75,12 @@ async function validateMessagingPermission(senderId: string, senderRole: string,
 }
 
 export async function fetchConversation(partnerId: string) {
-  const session = await requireAuth();
-  const allowed = await validateMessagingPermission(session.userId, session.role, partnerId);
+  const session = await requireMessagingSession();
+  const allowed = await validateMessagingPermission(
+    session.userId,
+    session.role as UserRole,
+    partnerId,
+  );
   if (!allowed) return { error: "Forbidden" as const };
 
   const rows = await getConversationMessages(session.userId, partnerId);
@@ -76,11 +96,15 @@ export async function fetchConversation(partnerId: string) {
 }
 
 export async function sendMessageAction(receiverId: string, body: string) {
-  const session = await requireAuth();
+  const session = await requireMessagingSession();
   const parsed = sendSchema.safeParse({ receiverId, body });
   if (!parsed.success) return { error: "Invalid message" };
 
-  const allowed = await validateMessagingPermission(session.userId, session.role, receiverId);
+  const allowed = await validateMessagingPermission(
+    session.userId,
+    session.role as UserRole,
+    receiverId,
+  );
   if (!allowed) return { error: "Forbidden" };
 
   await db.insert(messages).values({
@@ -95,8 +119,12 @@ export async function sendMessageAction(receiverId: string, body: string) {
 }
 
 export async function markConversationReadAction(partnerId: string) {
-  const session = await requireAuth();
-  const allowed = await validateMessagingPermission(session.userId, session.role, partnerId);
+  const session = await requireMessagingSession();
+  const allowed = await validateMessagingPermission(
+    session.userId,
+    session.role as UserRole,
+    partnerId,
+  );
   if (!allowed) return;
 
   await markConversationMessagesRead(partnerId, session.userId);

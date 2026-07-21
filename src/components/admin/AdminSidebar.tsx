@@ -30,7 +30,10 @@ export function AdminSidebar({
   const pathname = usePathname();
   const navSections = ADMIN_NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => !(staffRole === "recruiter" && item.key === "team")),
+    items: section.items.filter(
+      (item) =>
+        !(staffRole === "recruiter" && (item.key === "team" || item.key === "leads")),
+    ),
   })).filter((section) => section.items.length > 0);
 
   return (
