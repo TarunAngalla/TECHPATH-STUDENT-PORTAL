@@ -10,11 +10,16 @@ import {
   Mail,
   Phone,
   Play,
+  RefreshCw,
   Send,
   ShieldCheck,
+  ShieldX,
   Upload,
 } from "lucide-react";
-import { adminResetCandidatePassword } from "@/lib/actions/auth";
+import {
+  resendCandidateInviteAction,
+  revokeCandidateInvitesAction,
+} from "@/lib/actions/candidate-invites";
 import { reassignRecruiter, updateJourneyStage } from "@/lib/actions/candidates";
 import { deleteDocument, uploadDocument } from "@/lib/actions/documents";
 import { sendMessageAction } from "@/lib/actions/messages";
@@ -49,6 +54,7 @@ const PASSWORD_METHOD_LABELS: Record<string, string> = {
   forced_first_login: "Forced reset on first login",
   self_service: "Self-service password change",
   admin_reset: "Admin password reset",
+  secure_invite: "Password created through secure invitation",
 };
 
 type CandidateDetail = {
@@ -60,6 +66,8 @@ type CandidateDetail = {
   journeyStage: number;
   recruiterId: string | null;
   email: string;
+  accountState: "pending_setup" | "nda_pending" | "active" | "suspended";
+  firstLogin: boolean;
 };
 
 export function CandidateDetailPage({
@@ -71,6 +79,8 @@ export function CandidateDetailPage({
   trainingCatalog,
   messages,
   passwordHistory,
+  latestInvite,
+  canManageInvites = false,
   canReassignRecruiter = true,
   initialTab = "Profile",
 }: {
@@ -81,7 +91,8 @@ export function CandidateDetailPage({
     id: string;
     name: string;
     category: string;
-    fileUrl: string;
+    fileUrl: string | null;
+    storagePath?: string | null;
     uploadedAt: Date;
   }[];
   trainings: {
@@ -102,6 +113,15 @@ export function CandidateDetailPage({
     changedAt: Date;
     method: string;
   }[];
+  latestInvite: {
+    id: string;
+    expiresAt: Date;
+    usedAt: Date | null;
+    revokedAt: Date | null;
+    createdAt: Date;
+    status: "active" | "used" | "revoked" | "expired";
+  } | null;
+  canManageInvites?: boolean;
   canReassignRecruiter?: boolean;
   initialTab?: Tab;
 }) {
@@ -110,7 +130,11 @@ export function CandidateDetailPage({
   const [journeyStage, setJourneyStage] = useState(candidate.journeyStage);
   const [recruiterId, setRecruiterId] = useState(candidate.recruiterId ?? "");
   const [reply, setReply] = useState("");
-  const [resetPassword, setResetPassword] = useState<string | null>(null);
+  const [inviteFeedback, setInviteFeedback] = useState<{
+    kind: "success" | "error";
+    message: string;
+    previewUrl?: string;
+  } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleJourneyChange = (stage: number) => {
@@ -138,10 +162,31 @@ export function CandidateDetailPage({
     });
   };
 
-  const handleResetPassword = () => {
+  const handleResendInvite = () => {
+    setInviteFeedback(null);
     startTransition(async () => {
-      const result = await adminResetCandidatePassword(candidate.userId);
-      setResetPassword(result.password);
+      const result = await resendCandidateInviteAction(candidate.id);
+      if (result.error) {
+        setInviteFeedback({ kind: "error", message: result.error });
+        return;
+      }
+      setInviteFeedback({
+        kind: "success",
+        message: `A new single-use setup link was issued. Delivery: ${result.delivery}.`,
+        previewUrl: result.previewUrl,
+      });
+      router.refresh();
+    });
+  };
+
+  const handleRevokeInvites = () => {
+    setInviteFeedback(null);
+    startTransition(async () => {
+      const result = await revokeCandidateInvitesAction(candidate.id);
+      setInviteFeedback({
+        kind: "success",
+        message: `${result.count} active invitation${result.count === 1 ? "" : "s"} revoked.`,
+      });
       router.refresh();
     });
   };
@@ -330,43 +375,104 @@ export function CandidateDetailPage({
       {tab === "Account & Security" && (
         <Card variant="glass">
           <CardHeader>
-            <CardTitle>Password</CardTitle>
+            <CardTitle>Account setup and security</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="text-xs mb-4 flex items-center gap-1.5 text-text-muted">
-              <ShieldCheck size={12} aria-hidden="true" />
-              {passwordHistory[0]
-                ? `Last changed: ${formatDateTime(passwordHistory[0].changedAt)} · ${PASSWORD_METHOD_LABELS[passwordHistory[0].method] ?? passwordHistory[0].method}`
-                : "No password changes recorded yet."}
+            <div className="grid gap-3 sm:grid-cols-2 mb-5">
+              <div className="rounded-xl bg-surface/60 px-3 py-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                  Account state
+                </div>
+                <div className="mt-1 text-sm font-semibold text-text-primary">
+                  {candidate.accountState.replace("_", " ")}
+                </div>
+              </div>
+              <div className="rounded-xl bg-surface/60 px-3 py-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                  Latest invitation
+                </div>
+                <div className="mt-1 text-sm font-semibold text-text-primary">
+                  {latestInvite?.status ?? "Not issued"}
+                </div>
+                {latestInvite && (
+                  <div className="mt-1 text-[11px] text-text-muted">
+                    Created {formatDateTime(latestInvite.createdAt)} · Expires {formatDateTime(latestInvite.expiresAt)}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs mb-4 flex items-start gap-1.5 text-text-muted">
+              <ShieldCheck size={13} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+              Candidates create their password only through an expiring, single-use setup link.
+              Temporary passwords are never displayed or emailed.
             </p>
-            <Button
-              type="button"
-              variant="danger"
-              size="sm"
-              onClick={handleResetPassword}
-              disabled={isPending}
-              loading={isPending}
-              className="mb-4"
-            >
-              Reset password
-            </Button>
-            {resetPassword && (
+
+            {canManageInvites ? (
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleResendInvite}
+                  disabled={isPending || candidate.accountState !== "pending_setup"}
+                  loading={isPending}
+                >
+                  <RefreshCw size={13} aria-hidden="true" />
+                  {latestInvite ? "Revoke old and resend invite" : "Send setup invite"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleRevokeInvites}
+                  disabled={isPending || latestInvite?.status !== "active"}
+                >
+                  <ShieldX size={13} aria-hidden="true" /> Revoke active invite
+                </Button>
+              </div>
+            ) : (
+              <p className="mb-4 text-xs text-text-muted">
+                Only administrators can issue or revoke account setup invitations.
+              </p>
+            )}
+
+            {candidate.accountState !== "pending_setup" && (
+              <p className="mb-4 rounded-xl bg-success-soft px-3 py-2 text-xs text-success">
+                Account setup is complete. A new setup invitation cannot be issued unless an administrator
+                intentionally resets the account state in a future approved recovery workflow.
+              </p>
+            )}
+
+            {inviteFeedback && (
               <div
-                className="text-xs p-3 rounded-xl mb-6 font-mono bg-warning-soft text-text-primary"
+                className={cn(
+                  "mb-5 rounded-xl px-3 py-2 text-xs",
+                  inviteFeedback.kind === "error" ? "bg-danger-soft text-danger" : "bg-success-soft text-success",
+                )}
                 role="status"
               >
-                New temporary password: <strong>{resetPassword}</strong> — share with the candidate
-                directly.
+                {inviteFeedback.message}
+                {inviteFeedback.previewUrl && (
+                  <a
+                    href={inviteFeedback.previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ml-2 font-semibold underline"
+                  >
+                    Open development link
+                  </a>
+                )}
               </div>
             )}
-            <h3 className="text-sm font-semibold mb-2 text-text-primary">Change history</h3>
+
+            <h3 className="text-sm font-semibold mb-2 text-text-primary">Password change history</h3>
             {passwordHistory.length === 0 ? (
-              <p className="text-xs text-text-muted">No history yet.</p>
+              <p className="text-xs text-text-muted">No password changes recorded yet.</p>
             ) : (
               <div className="space-y-2">
-                {passwordHistory.map((entry, i) => (
+                {passwordHistory.map((entry, index) => (
                   <div
-                    key={i}
+                    key={`${entry.method}-${entry.changedAt.toISOString()}-${index}`}
                     className="flex items-center justify-between px-3 py-2 rounded-xl bg-surface/60"
                   >
                     <span className="text-xs text-text-primary">
@@ -398,7 +504,8 @@ function DocumentsTab({
     id: string;
     name: string;
     category: string;
-    fileUrl: string;
+    fileUrl: string | null;
+    storagePath?: string | null;
     uploadedAt: Date;
   }[];
   isPending: boolean;
@@ -435,7 +542,7 @@ function DocumentsTab({
               </option>
             ))}
           </Select>
-          <input name="file" type="file" required className="text-xs" />
+          <input name="file" type="file" required accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" className="text-xs" />
           <Button type="submit" size="sm" disabled={isPending} loading={isPending}>
             Upload
           </Button>
@@ -466,7 +573,7 @@ function DocumentsTab({
             </div>
             <div className="flex items-center gap-3">
               <a
-                href={d.fileUrl}
+                href={`/api/documents/${d.id}/download`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs font-medium flex items-center gap-1 text-brand-600 hover:text-brand-700 transition-colors"
@@ -477,7 +584,7 @@ function DocumentsTab({
                 type="button"
                 onClick={() =>
                   startTransition(async () => {
-                    await deleteDocument(d.id, candidateId);
+                    await deleteDocument(d.id);
                     router.refresh();
                   })
                 }

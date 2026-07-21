@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireCandidateAuth } from "@/lib/auth/guards";
+import { requireCandidatePortalAccess } from "@/lib/auth/guards";
 import {
   getAnnouncementsForCandidate,
   getApplicationsForCandidate,
@@ -9,8 +9,7 @@ import {
 import { CandidatePortalShell } from "@/components/candidate/CandidatePortalShell";
 
 export default async function CandidatePortalLayout({ children }: { children: React.ReactNode }) {
-  const session = await requireCandidateAuth();
-  if (session.firstLogin) redirect("/reset-password");
+  const session = await requireCandidatePortalAccess();
 
   const candidate = await getCandidateByUserId(session.userId);
 

@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { requireCandidateAuth } from "@/lib/auth/guards";
+import { requireCandidatePortalAccess } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { getCandidateByUserId } from "@/lib/db/queries/candidate";
 
 export async function getCandidateContext() {
-  const session = await requireCandidateAuth();
+  const session = await requireCandidatePortalAccess();
   const candidate = await getCandidateByUserId(session.userId);
   if (!candidate) redirect("/login");
 

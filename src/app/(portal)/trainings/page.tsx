@@ -1,5 +1,6 @@
 import { CandidateTrainingsList } from "@/components/candidate/CandidateTrainingsList";
 import { getCandidateContext } from "@/lib/candidate-context";
+import { serverFeatures } from "@/lib/config/features";
 import {
   ensureCandidateHasCatalogTrainings,
   getTrainingsForCandidate,
@@ -12,6 +13,7 @@ export default async function TrainingsPage() {
 
   return (
     <CandidateTrainingsList
+      allowSelfComplete={serverFeatures.candidateTrainingSelfComplete}
       trainings={trainings.map((t) => ({
         id: t.id,
         status: t.status,

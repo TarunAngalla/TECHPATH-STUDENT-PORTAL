@@ -1,5 +1,5 @@
 import { CandidateMessagesPage } from "@/components/candidate/CandidateMessagesPage";
-import { requireCandidateAuth } from "@/lib/auth/guards";
+import { requireCandidatePortalAccess } from "@/lib/auth/guards";
 import {
   getChatThreads,
   getConversationMessages,
@@ -10,7 +10,7 @@ export default async function MessagesPage({
 }: {
   searchParams: Promise<{ partnerId?: string }>;
 }) {
-  const session = await requireCandidateAuth();
+  const session = await requireCandidatePortalAccess();
   const threads = await getChatThreads(session.userId, "candidate");
 
   const resolvedParams = await searchParams;

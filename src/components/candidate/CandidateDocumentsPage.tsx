@@ -79,8 +79,10 @@ function ResumeUploadZone() {
 
 export function CandidateDocumentsPage({
   sections,
+  allowResumeUpload = false,
 }: {
   sections: { title: string; documents: Document[] }[];
+  allowResumeUpload?: boolean;
 }) {
   const hasDocuments = sections.some((s) => s.documents.length > 0);
 
@@ -90,7 +92,7 @@ export function CandidateDocumentsPage({
         Documents
       </h2>
 
-      <ResumeUploadZone />
+      {allowResumeUpload && <ResumeUploadZone />}
 
       {!hasDocuments ? (
         <Card variant="glass" className="overflow-hidden bg-white border border-border-strong/50 shadow-xs rounded-2xl">
@@ -119,7 +121,7 @@ export function CandidateDocumentsPage({
                       <DocumentRow
                         name={doc.name}
                         subtitle={`${DOCUMENT_CATEGORY_LABELS[doc.category as DocumentCategory]} · ${formatDate(doc.uploadedAt)}`}
-                        href={doc.fileUrl}
+                        href={`/api/documents/${doc.id}/download`}
                         category={doc.category as DocumentCategory}
                         isFirst={i === 0}
                       />

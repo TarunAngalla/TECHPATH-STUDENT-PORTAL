@@ -74,8 +74,8 @@ export function AuthShell({
           </header>
         )}
 
-        {/* Login form centered */}
-        <div className="flex-1 flex items-center justify-center px-6 sm:px-10 py-10 lg:py-0">
+        {/* Form panel — allow scroll for taller forms (e.g. request access) */}
+        <div className="flex-1 flex items-start lg:items-center justify-center px-6 sm:px-10 py-5 lg:py-6 overflow-y-auto">
           <div className="w-full max-w-[420px]">
             {children}
           </div>

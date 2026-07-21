@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { ArrowRight, Lock, Mail } from "lucide-react";
 import { candidateLoginAction, type AuthActionState } from "@/lib/actions/auth";
@@ -78,8 +79,15 @@ export function CandidateLoginForm() {
           </Button>
         </form>
 
+        <div className="mt-6 text-center text-xs text-slate-500">
+          Need portal access?{" "}
+          <Link href="/request-access" className="font-semibold text-slate-900 hover:underline">
+            Submit a request
+          </Link>
+        </div>
+
         {/* Footer */}
-        <p className="text-center text-[11px] text-slate-400 mt-8 font-medium">
+        <p className="text-center text-[11px] text-slate-400 mt-5 font-medium">
           Protected by The Tech Path &middot; Secure Login
         </p>
       </div>

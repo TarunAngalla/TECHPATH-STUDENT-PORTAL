@@ -1,3 +1,7 @@
+-- LEGACY REFERENCE ONLY
+-- The canonical schema is src/lib/db/schema.ts plus ordered files in drizzle/.
+-- Use `npm run db:migrate`; do not apply this file to shared or production databases.
+
 -- The Tech Path — Database Schema (PostgreSQL)
 -- Reflects REQUIREMENTS.md exactly. No NDA tables. No separate
 -- interviews/assessments tables — those concepts live on `applications`.
