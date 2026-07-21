@@ -1,6 +1,7 @@
 import { eq, and, desc } from "drizzle-orm";
 import { CandidateSettingsPage } from "@/components/candidate/CandidateSettingsPage";
 import { getCandidateContext } from "@/lib/candidate-context";
+import { serverFeatures } from "@/lib/config/features";
 import { db } from "@/lib/db";
 import { passwordChangeLog, users } from "@/lib/db/schema";
 
@@ -31,6 +32,7 @@ export default async function SettingsPage() {
       email={user?.email ?? ""}
       phone={candidate.phone ?? ""}
       lastAdminReset={lastAdminReset?.changedAt ?? null}
+      allowPhoneEdit={serverFeatures.candidatePhoneEdit}
     />
   );
 }

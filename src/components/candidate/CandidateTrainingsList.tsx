@@ -102,7 +102,7 @@ function TypeChip({ type }: { type: TrainingItem["type"] }) {
   );
 }
 
-function TrainingRow({ training }: { training: TrainingItem }) {
+function TrainingRow({ training, allowSelfComplete }: { training: TrainingItem; allowSelfComplete: boolean }) {
   const router = useRouter();
   const isVideo = training.type === "video";
   const [expanded, setExpanded] = useState(false);
@@ -115,7 +115,7 @@ function TrainingRow({ training }: { training: TrainingItem }) {
   const canEmbedPdf = Boolean(documentViewer);
 
   const markComplete = () => {
-    if (training.status === "completed" || isPending) return;
+    if (!allowSelfComplete || training.status === "completed" || isPending) return;
     startTransition(async () => {
       const result = await completeTrainingAsCandidate(training.id);
       if (result.error) {
@@ -196,7 +196,7 @@ function TrainingRow({ training }: { training: TrainingItem }) {
             </Badge>
           )}
 
-          {training.status === "upcoming" && !canEmbedVideo && training.contentUrl && (
+          {allowSelfComplete && training.status === "upcoming" && !canEmbedVideo && training.contentUrl && (
             <Button
               variant="outline"
               size="sm"
@@ -226,10 +226,10 @@ function TrainingRow({ training }: { training: TrainingItem }) {
                   <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border-strong/40 bg-black shadow-xs">
                     <YouTubePlayer
                       videoId={youtubeId}
-                      onEnded={training.status === "upcoming" ? markComplete : undefined}
+                      onEnded={allowSelfComplete && training.status === "upcoming" ? markComplete : undefined}
                     />
                   </div>
-                  {training.status === "upcoming" && (
+                  {allowSelfComplete && training.status === "upcoming" && (
                     <p className="text-[11px] text-text-muted font-medium">
                       Watch the full video to mark this training as complete.
                     </p>
@@ -244,9 +244,9 @@ function TrainingRow({ training }: { training: TrainingItem }) {
                     src={training.contentUrl}
                     controls
                     playsInline
-                    onEnded={training.status === "upcoming" ? markComplete : undefined}
+                    onEnded={allowSelfComplete && training.status === "upcoming" ? markComplete : undefined}
                   />
-                  {training.status === "upcoming" && (
+                  {allowSelfComplete && training.status === "upcoming" && (
                     <p className="text-[11px] text-text-muted font-medium">
                       Watch the full video to mark this training as complete.
                     </p>
@@ -281,7 +281,7 @@ function TrainingRow({ training }: { training: TrainingItem }) {
                           Open in new tab
                         </a>
                       </Button>
-                      {training.status === "upcoming" && (
+                      {allowSelfComplete && training.status === "upcoming" && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -310,7 +310,7 @@ function TrainingRow({ training }: { training: TrainingItem }) {
                         Open video
                       </a>
                     </Button>
-                    {training.status === "upcoming" && (
+                    {allowSelfComplete && training.status === "upcoming" && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -337,7 +337,7 @@ const TAB_NOTES: Record<Tab, string> = {
   completed: "Completed trainings will appear here once you finish assigned modules.",
 };
 
-export function CandidateTrainingsList({ trainings }: { trainings: TrainingItem[] }) {
+export function CandidateTrainingsList({ trainings, allowSelfComplete = false }: { trainings: TrainingItem[]; allowSelfComplete?: boolean }) {
   const [activeTab, setActiveTab] = useState<Tab>("upcoming");
 
   const upcoming = trainings.filter((t) => t.status === "upcoming");
@@ -397,7 +397,7 @@ export function CandidateTrainingsList({ trainings }: { trainings: TrainingItem[
         >
           {activeList.map((t) => (
             <div key={t.id} role="listitem">
-              <TrainingRow training={t} />
+              <TrainingRow training={t} allowSelfComplete={allowSelfComplete} />
             </div>
           ))}
         </Card>

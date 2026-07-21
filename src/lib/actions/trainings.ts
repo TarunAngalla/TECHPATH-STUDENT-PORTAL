@@ -3,7 +3,8 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireStaffAuth, requireCandidateAuth } from "@/lib/auth/guards";
+import { requireStaffAuth, requireCandidatePortalAccess } from "@/lib/auth/guards";
+import { serverFeatures } from "@/lib/config/features";
 import { db } from "@/lib/db";
 import { candidateTrainings, candidates, trainings } from "@/lib/db/schema";
 
@@ -74,10 +75,9 @@ export async function markTrainingComplete(candidateTrainingId: string, candidat
   if (!(await assertCandidateInScope(candidateId, getStaffScope(session)))) {
     return { error: "Forbidden" };
   }
-  await db
-    .update(candidateTrainings)
-    .set({ status: "completed", completedAt: new Date() })
-    .where(eq(candidateTrainings.id, candidateTrainingId));
+  const [record] = await db.select({ candidateId: candidateTrainings.candidateId }).from(candidateTrainings).where(eq(candidateTrainings.id, candidateTrainingId)).limit(1);
+  if (!record || record.candidateId !== candidateId) return { error: "Training assignment not found" };
+  await db.update(candidateTrainings).set({ status: "completed", completedAt: new Date() }).where(eq(candidateTrainings.id, candidateTrainingId));
   revalidatePath(`/admin/candidates/${candidateId}`);
   revalidatePath("/trainings");
   revalidatePath("/dashboard");
@@ -85,7 +85,8 @@ export async function markTrainingComplete(candidateTrainingId: string, candidat
 }
 
 export async function completeTrainingAsCandidate(candidateTrainingId: string) {
-  const session = await requireCandidateAuth();
+  const session = await requireCandidatePortalAccess();
+  if (!serverFeatures.candidateTrainingSelfComplete) return { error: "Training completion is managed by TechPath staff." };
   const [ct] = await db
     .select()
     .from(candidateTrainings)

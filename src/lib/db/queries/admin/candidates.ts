@@ -19,6 +19,8 @@ export async function getCandidatesList(scope?: StaffScope) {
       recruiterId: candidates.recruiterId,
       createdAt: candidates.createdAt,
       email: users.email,
+      accountState: users.accountState,
+      firstLogin: users.firstLogin,
     })
     .from(candidates)
     .innerJoin(users, eq(candidates.userId, users.id))
@@ -72,6 +74,8 @@ export async function getCandidateDetail(candidateId: string, scope?: StaffScope
       recruiterId: candidates.recruiterId,
       createdAt: candidates.createdAt,
       email: users.email,
+      accountState: users.accountState,
+      firstLogin: users.firstLogin,
     })
     .from(candidates)
     .innerJoin(users, eq(candidates.userId, users.id))

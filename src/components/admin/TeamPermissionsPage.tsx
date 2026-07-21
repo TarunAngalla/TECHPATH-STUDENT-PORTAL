@@ -9,9 +9,9 @@ import { Badge, Button, Card, Input, Select } from "@/components/ui";
 
 function generateClientPassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  let out = "";
-  for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
+  const values = new Uint32Array(12);
+  crypto.getRandomValues(values);
+  return Array.from(values, (value) => chars[value % chars.length]).join("");
 }
 
 type StaffUser = {

@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
-import { leads } from "@/lib/db/schema";
+import { submitTrustedEnquiry } from "@/lib/services/public-enquiries";
 
 const leadSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  phone: z.string().optional(),
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(254),
+  phone: z.string().trim().max(40).optional(),
   optType: z.enum(["OPT", "STEM_OPT"]).optional(),
-  source: z.enum(["enquiry_form", "consultation_booked"]).default("enquiry_form"),
-  notes: z.string().optional(),
+  roleInterest: z.string().trim().min(2).max(160).default("General candidate enquiry"),
+  experienceSummary: z.string().trim().max(1200).optional(),
+  additionalInformation: z.string().trim().max(2000).optional(),
 });
 
 /**
- * Public lead intake for the marketing site.
- * Auth: Authorization: Bearer <LEAD_INTAKE_SECRET> or x-api-key header.
+ * Trusted lead intake for an external TechPath marketing site.
+ * Auth: Authorization: Bearer <LEAD_INTAKE_SECRET> or x-api-key.
  */
 export async function POST(request: Request) {
   const secret = process.env.LEAD_INTAKE_SECRET;
@@ -38,21 +38,26 @@ export async function POST(request: Request) {
 
   const parsed = leadSchema.safeParse(json);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload", details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid payload", details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
-  const [lead] = await db
-    .insert(leads)
-    .values({
-      name: parsed.data.name,
-      email: parsed.data.email.toLowerCase(),
-      phone: parsed.data.phone,
-      optType: parsed.data.optType,
-      source: parsed.data.source,
-      notes: parsed.data.notes ?? "",
-      status: "new",
-    })
-    .returning({ id: leads.id });
-
-  return NextResponse.json({ id: lead.id, ok: true }, { status: 201 });
+  try {
+    const result = await submitTrustedEnquiry({
+      ...parsed.data,
+      phone: parsed.data.phone ?? "",
+      optType: parsed.data.optType ?? "",
+      experienceSummary: parsed.data.experienceSummary ?? "",
+      additionalInformation: parsed.data.additionalInformation ?? "",
+    });
+    return NextResponse.json(
+      { id: result.leadId, ok: true, created: result.created },
+      { status: result.created ? 201 : 200 },
+    );
+  } catch (error) {
+    console.error("[api/leads] intake failed", error);
+    return NextResponse.json({ error: "Unable to process enquiry" }, { status: 500 });
+  }
 }

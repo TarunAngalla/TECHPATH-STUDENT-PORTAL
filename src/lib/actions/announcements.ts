@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireCandidateAuth, requireStaffAuth } from "@/lib/auth/guards";
+import { requireCandidatePortalAccess, requireStaffAuth } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { announcementReads, announcements } from "@/lib/db/schema";
 
 export async function markAnnouncementRead(announcementId: string, candidateId: string) {
-  const session = await requireCandidateAuth();
+  const session = await requireCandidatePortalAccess();
   if (session.candidateId !== candidateId) return;
 
   await db
@@ -54,7 +54,7 @@ export async function createAnnouncement(data: z.infer<typeof createSchema>) {
 }
 
 export async function markAllAnnouncementsRead(candidateId: string) {
-  const session = await requireCandidateAuth();
+  const session = await requireCandidatePortalAccess();
   if (session.candidateId !== candidateId) return;
 
   const all = await db.select({ id: announcements.id }).from(announcements);

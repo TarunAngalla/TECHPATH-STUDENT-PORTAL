@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/queries/shared/trainings";
 import { getPasswordChangeHistory } from "@/lib/db/queries/candidate/dashboard";
 import { CandidateDetailPage } from "@/components/admin/CandidateDetailPage";
+import { getLatestCandidateInvite } from "@/lib/services/candidate-invites";
 
 const VALID_TABS = [
   "Profile",
@@ -50,8 +51,16 @@ export default async function AdminCandidateDetailPage({
   // Mark read
   await markConversationMessagesRead(candidate.userId, session.userId);
 
-  const [recruiters, applications, documents, trainings, trainingCatalog, messages, passwordHistory] =
-    await Promise.all([
+  const [
+    recruiters,
+    applications,
+    documents,
+    trainings,
+    trainingCatalog,
+    messages,
+    passwordHistory,
+    latestInvite,
+  ] = await Promise.all([
       getRecruiters(),
       getApplicationsByCandidateId(id),
       getDocumentsByCandidateId(id),
@@ -59,6 +68,7 @@ export default async function AdminCandidateDetailPage({
       getTrainingCatalog(),
       getConversationMessages(candidate.userId, session.userId),
       getPasswordChangeHistory(candidate.userId),
+      getLatestCandidateInvite(candidate.id),
     ]);
 
   const mappedMessages = messages.map((m) => ({
@@ -85,6 +95,8 @@ export default async function AdminCandidateDetailPage({
       trainingCatalog={trainingCatalog}
       messages={mappedMessages}
       passwordHistory={passwordHistory}
+      latestInvite={latestInvite}
+      canManageInvites={scope.seesAllCandidates}
       canReassignRecruiter={scope.seesAllCandidates}
       initialTab={resolvedTab}
     />

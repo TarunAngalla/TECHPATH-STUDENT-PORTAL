@@ -1,16 +1,20 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { changePassword } from "@/lib/auth/password";
-import { requireCandidateAuth, requireStaffAuth } from "@/lib/auth/guards";
+import { requireAdminAuth, requireCandidatePortalAccess, requireStaffAuth } from "@/lib/auth/guards";
+import { serverFeatures } from "@/lib/config/features";
 import { db } from "@/lib/db";
 import { candidates, users } from "@/lib/db/schema";
 
 export async function updateCandidatePhone(phone: string) {
-  const session = await requireCandidateAuth();
-  await db.update(candidates).set({ phone }).where(eq(candidates.userId, session.userId));
+  const session = await requireCandidatePortalAccess();
+  if (!serverFeatures.candidatePhoneEdit) return { error: "Profile updates are managed by TechPath staff." };
+  const parsed = z.string().trim().max(40).safeParse(phone);
+  if (!parsed.success) return { error: "Invalid phone number." };
+  await db.update(candidates).set({ phone: parsed.data }).where(eq(candidates.userId, session.userId));
   revalidatePath("/settings");
   return {};
 }
@@ -44,9 +48,8 @@ export async function updateStaffPassword(data: z.infer<typeof staffPwSchema>) {
   return {};
 }
 
-export async function createStaffUser(email: string, role: "recruiter" | "admin", password: string) {
-  const session = await requireStaffAuth();
-  if (session.role !== "admin") return { error: "Admin only" };
+export async function createStaffUser(email: string, role: "recruiter" | "admin", password: string): Promise<{ id?: string; error?: string }> {
+  const session = await requireAdminAuth();
 
   const { hashPassword, logAudit } = await import("@/lib/auth/password");
   const passwordHash = await hashPassword(password);
@@ -68,10 +71,9 @@ export async function createStaffUser(email: string, role: "recruiter" | "admin"
 }
 
 export async function updateStaffRole(userId: string, role: "recruiter" | "admin") {
-  const session = await requireStaffAuth();
-  if (session.role !== "admin") return { error: "Admin only" };
-
-  await db.update(users).set({ role }).where(eq(users.id, userId));
+  const session = await requireAdminAuth();
+  if (session.userId === userId) return { error: "You cannot change your own active role." };
+  await db.update(users).set({ role, sessionVersion: sql`${users.sessionVersion} + 1` }).where(eq(users.id, userId));
 
   const { logAudit } = await import("@/lib/auth/password");
   await logAudit({

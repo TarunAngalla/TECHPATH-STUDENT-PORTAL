@@ -30,11 +30,13 @@ export function CandidateSettingsPage({
   email,
   phone: initialPhone,
   lastAdminReset,
+  allowPhoneEdit = false,
 }: {
   fullName: string;
   email: string;
   phone: string;
   lastAdminReset: Date | string | null;
+  allowPhoneEdit?: boolean;
 }) {
   const [phone, setPhone] = useState(initialPhone);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -44,7 +46,11 @@ export function CandidateSettingsPage({
 
   const handleSave = () => {
     startTransition(async () => {
-      await updateCandidatePhone(phone);
+      const result = await updateCandidatePhone(phone);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
       toast.success("Phone number saved.");
     });
   };
@@ -98,17 +104,22 @@ export function CandidateSettingsPage({
               id="settings-phone"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              readOnly={!allowPhoneEdit}
               className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border border-border-strong/45 bg-white text-text-primary focus:border-brand-500/80 focus:ring-1 focus:ring-brand-500/80 transition-colors shadow-xs font-medium"
             />
           </div>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isPending}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-brand-500 text-white shadow-xs hover:bg-brand-600 transition-all disabled:opacity-60 disabled:pointer-events-none"
-          >
-            {isPending ? "Saving Changes…" : "Save Changes"}
-          </button>
+          {allowPhoneEdit ? (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isPending}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-brand-500 text-white shadow-xs hover:bg-brand-600 transition-all disabled:opacity-60 disabled:pointer-events-none"
+            >
+              {isPending ? "Saving Changes…" : "Save Changes"}
+            </button>
+          ) : (
+            <p className="text-xs text-text-muted">Contact your recruiter to update profile details.</p>
+          )}
         </CardContent>
       </Card>
 
