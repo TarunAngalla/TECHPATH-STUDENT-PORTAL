@@ -36,13 +36,18 @@
 
 ## Phase 3 — NDA and strict view-only release
 
-- [ ] Confirm NDA signature method with client/legal.
-- [ ] Implement `NdaSigningProvider` selected implementation.
-- [ ] NDA template administration and version activation.
-- [ ] NDA signing evidence, immutable record, private PDF, and email confirmation.
-- [ ] Admin NDA pending/signed list.
-- [ ] Enable `ENABLE_NDA_GATE` only after end-to-end verification.
-- [ ] Remove/disable remaining unapproved candidate mutations.
+- [ ] Obtain client/legal production approval for typed-name electronic signatures and final NDA text.
+- [x] Implement typed-name `NdaSigningProvider` with a replaceable provider interface.
+- [x] Add NDA template administration, hashing, and version activation.
+- [x] Add transaction-safe NDA signing evidence and immutable agreement records.
+- [x] Generate, hash, privately store, authorize, and email the signed NDA PDF.
+- [x] Add candidate NDA gate/signing/history experience.
+- [x] Add admin NDA pending, template, and signature-history page.
+- [x] Require re-signing when a new NDA version is activated.
+- [x] Enable `ENABLE_NDA_GATE` by default for the approved workflow.
+- [x] Keep unapproved candidate mutations disabled by default.
+- [x] Add NDA domain smoke coverage and Phase 3 migration assertions.
+- [ ] Run migration/runtime/end-to-end NDA verification in the target development environment.
 
 ## Phase 4 — Recruiter assignment and candidate journey
 
@@ -70,3 +75,16 @@
 - [ ] Playwright approval, rejection, invite, NDA, scope, and file-access flows.
 - [ ] CI quality gate: migration smoke, typecheck, lint, test, build.
 - [ ] Staging deployment, UAT, backups, monitoring, and rollback plan.
+
+## Phase 4 — Recruiter, journey, and marketing operations
+
+- [x] Add staff profiles and recruiter capacity.
+- [x] Enforce one active recruiter assignment per candidate.
+- [x] Record assignment/reassignment/unassignment history and reasons.
+- [x] Add recruiter work queue and unassigned candidate management.
+- [x] Record journey-stage transitions with real timestamps and visibility.
+- [x] Add marketing readiness checks and lifecycle transitions.
+- [x] Replace hardcoded recruiter contact data.
+- [x] Back candidate progress with actual journey events.
+- [x] Add migration/domain smoke assertions.
+- [ ] Execute live Phase 4 UAT against a configured development database.

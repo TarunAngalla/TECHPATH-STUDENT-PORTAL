@@ -14,7 +14,8 @@ import {
 import { StaggerChildren, StaggerItem } from "@/components/motion/PageTransition";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { JOURNEY_STEPS } from "@/lib/constants/journey";
-import type { Application } from "@/lib/db/schema";
+import type { Application, MarketingStatus } from "@/lib/db/schema";
+import { MARKETING_STATUS_LABELS } from "@/lib/constants/marketing";
 import { formatDate } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 
@@ -55,51 +56,43 @@ const STAGE_INFO: Record<
 export function CandidateProgressPage({
   journeyStage,
   applications,
+  journeyEvents,
+  marketingStatus,
   createdAt,
 }: {
   journeyStage: number;
   applications: Application[];
+  journeyEvents: {
+    id: string;
+    stage: number;
+    previousStage: number | null;
+    eventType: string;
+    source: string;
+    note: string | null;
+    occurredAt: Date | string;
+  }[];
+  marketingStatus: MarketingStatus;
   createdAt: Date | string;
 }) {
   const stage = STAGE_INFO[journeyStage] ?? STAGE_INFO[0];
   const uniqueCompanies = new Set(applications.map((a) => a.companyName)).size;
 
   const timeline = JOURNEY_STEPS.map((label, i) => {
+    const stageEvents = journeyEvents.filter((event) => event.stage === i);
+    const latestEvent = stageEvents.at(-1);
     const done = i < journeyStage;
     const active = i === journeyStage;
-    let date = "Not started";
-    let note = "";
-
-    if (i === 0) {
-      date = formatDate(createdAt);
-      note = done ? "Completed resume and profile training with your recruiter." : "In progress.";
-    } else if (i === 1) {
-      date = journeyStage >= 1 ? formatDate(createdAt) : "Not started";
-      note = journeyStage >= 1 ? "Recruiter assigned to your profile." : "Waiting for recruiter assignment.";
-    } else if (i === 2) {
-      date = journeyStage >= 2 ? formatDate(createdAt) : "Not started";
-      note =
-        journeyStage >= 2
-          ? `Your profile went live with ${uniqueCompanies || "several"} companies in the pipeline.`
-          : "Begins once marketing launches.";
-    } else if (i === 3) {
-      const hasInterview = applications.some((a) =>
-        ["interview_r1", "interview_r2", "interview_r3", "hr_round", "final_round", "offer"].includes(
-          a.status,
-        ),
-      );
-      date = hasInterview ? "In progress" : "Not started";
-      note = hasInterview
-        ? "Active interviews and assessments underway."
-        : "Begins once you have a confirmed first interview.";
-    }
 
     return {
       label,
-      date,
-      duration: active ? "Current stage" : done ? "Complete" : null,
-      note,
-      done: done || active,
+      date: latestEvent
+        ? formatDate(latestEvent.occurredAt)
+        : i === 0 && journeyStage === 0 && journeyEvents.length === 0
+          ? formatDate(createdAt)
+          : "Not started",
+      duration: active ? "Current stage" : done && latestEvent ? "Complete" : null,
+      note: latestEvent?.note?.trim() || (latestEvent ? "Stage update recorded." : "Not started yet."),
+      done: Boolean(latestEvent) || active,
       active,
     };
   });
@@ -107,7 +100,7 @@ export function CandidateProgressPage({
   const statTiles = [
     { value: uniqueCompanies, label: "Companies in Pipeline", icon: Building, iconColor: "text-brand-500 bg-brand-50 border border-brand-100" },
     { value: applications.length, label: "Applications Submitted", icon: Send, iconColor: "text-success bg-green-50 border border-green-100" },
-    { value: `${journeyStage + 1} / ${JOURNEY_STEPS.length}`, label: "Current Stage", icon: Compass, iconColor: "text-purple-600 bg-purple-50 border border-purple-100" },
+    { value: MARKETING_STATUS_LABELS[marketingStatus], label: "Marketing Status", icon: Compass, iconColor: "text-purple-600 bg-purple-50 border border-purple-100" },
   ];
 
   return (

@@ -15,7 +15,6 @@ import {
   CheckCircle,
   ArrowRight,
   ChevronRight,
-  Megaphone,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -38,7 +37,7 @@ type DashboardProps = {
   newLeads: number;
   consultations: number;
   activeCandidates: number;
-  marketingLive: number;
+  ndasPending: number;
   interviewsThisWeek: number;
   interviewsInProgress: number;
   recruitersAssigned: number;
@@ -151,7 +150,7 @@ export function AdminDashboard({
   newLeads,
   consultations,
   activeCandidates,
-  marketingLive,
+  ndasPending,
   interviewsThisWeek,
   interviewsInProgress,
   recruitersAssigned,
@@ -190,10 +189,10 @@ export function AdminDashboard({
       iconBg: "bg-purple-50 text-purple-600 border border-purple-100",
     },
     {
-      label: "Marketing Live",
-      value: marketingLive,
-      hint: "Journey stage 2+",
-      icon: Megaphone,
+      label: "NDAs Pending",
+      value: ndasPending,
+      hint: "Awaiting signature",
+      icon: Lock,
       iconBg: "bg-orange-50 text-orange-600 border border-orange-100",
     },
     {

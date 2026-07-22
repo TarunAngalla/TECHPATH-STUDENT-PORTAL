@@ -33,6 +33,40 @@ export async function uploadDocumentFile(candidateId: string, filename: string, 
   if (error) throw new Error(error.message);
   return path;
 }
+
+export async function uploadPrivateFile(
+  path: string,
+  buffer: Buffer,
+  contentType: string,
+  options?: { upsert?: boolean; cacheControl?: string },
+) {
+  const normalizedPath = path.replace(/^\/+/, "");
+  if (!normalizedPath || normalizedPath.includes("..")) throw new Error("Invalid storage path");
+  const { error } = await getSupabaseAdmin().storage.from(getBucket()).upload(normalizedPath, buffer, {
+    contentType,
+    upsert: options?.upsert ?? false,
+    cacheControl: options?.cacheControl ?? "3600",
+  });
+  if (error) throw new Error(error.message);
+  return normalizedPath;
+}
+
+export async function uploadSignedNdaPdf(input: {
+  candidateId: string;
+  agreementId: string;
+  templateVersion: string;
+  documentHash: string;
+  buffer: Buffer;
+}) {
+  const safeVersion = sanitizeFilename(input.templateVersion).replace(/\.pdf$/i, "");
+  const safeHash = input.documentHash.toLowerCase().replace(/[^a-f0-9]/g, "").slice(0, 24);
+  if (safeHash.length !== 24) throw new Error("Invalid signed NDA document hash");
+  // Every signing attempt gets an immutable object path. This prevents a stale
+  // concurrent attempt from overwriting or deleting an already finalized PDF.
+  const path = `${input.candidateId}/nda/${input.agreementId}-v${safeVersion}-${safeHash}.pdf`;
+  return uploadPrivateFile(path, input.buffer, "application/pdf", { upsert: false, cacheControl: "private, max-age=0" });
+}
+
 export async function deleteStorageFile(value: string | null | undefined) {
   const path = storagePathFromValue(value);
   if (!path) return;

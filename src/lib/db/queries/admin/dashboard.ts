@@ -55,10 +55,22 @@ export async function getDashboardStats(scope?: StaffScope) {
     ? await db.select({ count: count() }).from(leads)
     : [{ count: 0 }];
 
-  const [activeCandidatesRow] = await db
+  const [portalCandidatesRow] = await db
     .select({ count: count() })
     .from(candidates)
     .where(scopeFilter);
+
+  const [activeCandidatesRow] = await db
+    .select({ count: count() })
+    .from(candidates)
+    .innerJoin(users, eq(users.id, candidates.userId))
+    .where(and(scopeFilter, eq(users.accountState, "active")));
+
+  const [ndaPendingRow] = await db
+    .select({ count: count() })
+    .from(candidates)
+    .innerJoin(users, eq(users.id, candidates.userId))
+    .where(and(scopeFilter, eq(users.accountState, "nda_pending")));
 
   const weekStart = new Date();
   weekStart.setHours(0, 0, 0, 0);
@@ -72,6 +84,7 @@ export async function getDashboardStats(scope?: StaffScope) {
       fullName: candidates.fullName,
       journeyStage: candidates.journeyStage,
       recruiterId: candidates.recruiterId,
+      marketingStatus: candidates.marketingStatus,
       createdAt: candidates.createdAt,
     })
     .from(candidates)
@@ -99,8 +112,10 @@ export async function getDashboardStats(scope?: StaffScope) {
     INTERVIEW_STATUSES.includes(a.status as (typeof INTERVIEW_STATUSES)[number]),
   ).length;
 
-  const marketingLive = scopedCandidates.filter((c) => c.journeyStage >= 2).length;
-  const portalAccessGranted = Number(activeCandidatesRow?.count ?? 0);
+  const marketingLive = scopedCandidates.filter((c) => c.marketingStatus === "live").length;
+  const portalAccessGranted = Number(portalCandidatesRow?.count ?? 0);
+  const activeCandidates = Number(activeCandidatesRow?.count ?? 0);
+  const ndasPending = Number(ndaPendingRow?.count ?? 0);
   const placedCount = allApps.filter((a) => a.status === "offer").length;
 
   const unreadMessages = scope ? await getUnreadStaffMessageCount(scope) : 0;
@@ -233,7 +248,11 @@ export async function getDashboardStats(scope?: StaffScope) {
       : [];
 
     const candidatesCreated = await db
-      .select({ journeyStage: candidates.journeyStage, createdAt: candidates.createdAt })
+      .select({
+        journeyStage: candidates.journeyStage,
+        marketingStatus: candidates.marketingStatus,
+        createdAt: candidates.createdAt,
+      })
       .from(candidates)
       .where(and(gte(candidates.createdAt, start), lt(candidates.createdAt, end), scopeFilter));
 
@@ -247,7 +266,7 @@ export async function getDashboardStats(scope?: StaffScope) {
       Enquiries: leadRows.filter((l) => l.source === "enquiry_form").length,
       Consultations: leadRows.filter((l) => l.source === "consultation_booked").length,
       Portal: candidatesCreated.length,
-      Marketing: candidatesCreated.filter((c) => c.journeyStage >= 2).length,
+      Marketing: candidatesCreated.filter((c) => c.marketingStatus === "live").length,
       Interviews: appsInWeek.filter((a) =>
         INTERVIEW_STATUSES.includes(a.status as (typeof INTERVIEW_STATUSES)[number]),
       ).length,
@@ -262,7 +281,8 @@ export async function getDashboardStats(scope?: StaffScope) {
   return {
     newLeads: Number(newLeads?.count ?? 0),
     consultations,
-    activeCandidates: portalAccessGranted,
+    activeCandidates,
+    ndasPending,
     marketingLive,
     interviewsThisWeek,
     interviewsInProgress,

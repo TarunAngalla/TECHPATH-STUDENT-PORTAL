@@ -32,7 +32,7 @@ export function AdminSidebar({
     ...section,
     items: section.items.filter(
       (item) =>
-        !(staffRole === "recruiter" && (item.key === "team" || item.key === "leads")),
+        !(staffRole === "recruiter" && (item.key === "team" || item.key === "leads" || item.key === "nda")),
     ),
   })).filter((section) => section.items.length > 0);
 

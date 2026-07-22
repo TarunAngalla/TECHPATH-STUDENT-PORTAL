@@ -132,7 +132,7 @@ function NextUpBanner({ next }: { next: Application }) {
 function RecruiterCard({
   recruiter,
 }: {
-  recruiter: { id: string; email: string; name: string } | null;
+  recruiter: { id: string; email: string; name: string; title: string; phone: string | null; timezone: string } | null;
   candidateId?: string;
 }) {
   const [quickMsg, setQuickMsg] = useState("");
@@ -162,7 +162,7 @@ function RecruiterCard({
             <Avatar name={recruiter.name} size="lg" className="h-12 w-12 border border-border-strong/50 shadow-xs" />
             <div>
               <div className="text-sm font-semibold text-text-primary">{recruiter.name}</div>
-              <div className="text-xs text-text-muted">Senior Talent Marketing Specialist</div>
+              <div className="text-xs text-text-muted">{recruiter.title}</div>
             </div>
           </div>
           <div className="text-xs text-text-muted space-y-2">
@@ -172,7 +172,7 @@ function RecruiterCard({
             </div>
             <div className="flex items-center gap-2">
               <Users size={13} className="text-text-muted/70" />
-              <span>+1 (469) 555-0187</span>
+              <span>{recruiter.phone ?? "Phone available through TechPath support"}</span>
             </div>
           </div>
           <div className="flex flex-col gap-2.5 pt-2">
@@ -378,7 +378,7 @@ export function CandidateDashboard({
     };
     recentActivity: Application[];
   };
-  recruiter: { id: string; email: string; name: string } | null;
+  recruiter: { id: string; email: string; name: string; title: string; phone: string | null; timezone: string } | null;
   announcements: { id: string; title: string; createdAt: Date | string }[];
   checklist: ChecklistItem[];
 }) {

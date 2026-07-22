@@ -23,3 +23,17 @@
 | Change own password | Yes | Yes | Yes |
 
 Every permission must be enforced in server-side code. Navigation visibility is not authorization.
+
+## Phase 4 permissions
+
+| Capability | Admin | Recruiter | Candidate |
+|---|---:|---:|---:|
+| View recruiter workloads | All recruiters | Own workload | No |
+| Assign/reassign/unassign recruiter | Yes | No | No |
+| Edit staff profile/capacity/availability | Yes | No | No |
+| View assignment history | All candidates | Assigned candidates | Current recruiter only through profile card |
+| Update journey stage | All candidates | Assigned candidates | No |
+| View internal journey notes | Yes | Assigned candidates | No |
+| View candidate-visible journey history | Yes | Assigned candidates | Own history |
+| Update marketing lifecycle | All candidates | Assigned candidates | No |
+| View marketing status | Yes | Assigned candidates | Own status |

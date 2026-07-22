@@ -23,7 +23,7 @@ export default async function AdminDashboardPage() {
       newLeads={stats.newLeads}
       consultations={stats.consultations}
       activeCandidates={stats.activeCandidates}
-      marketingLive={stats.marketingLive}
+      ndasPending={stats.ndasPending}
       interviewsThisWeek={stats.interviewsThisWeek}
       interviewsInProgress={stats.interviewsInProgress}
       recruitersAssigned={stats.recruitersAssigned}

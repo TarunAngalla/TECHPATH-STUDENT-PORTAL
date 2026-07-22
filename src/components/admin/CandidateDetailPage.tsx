@@ -21,6 +21,7 @@ import {
   revokeCandidateInvitesAction,
 } from "@/lib/actions/candidate-invites";
 import { reassignRecruiter, updateJourneyStage } from "@/lib/actions/candidates";
+import { updateMarketingStatusAction } from "@/lib/actions/marketing";
 import { deleteDocument, uploadDocument } from "@/lib/actions/documents";
 import { sendMessageAction } from "@/lib/actions/messages";
 import {
@@ -29,15 +30,18 @@ import {
 } from "@/lib/actions/trainings";
 import { DOCUMENT_CATEGORY_LABELS } from "@/lib/constants/document-sections";
 import { JOURNEY_STEPS } from "@/lib/constants/journey";
+import { MARKETING_STATUS_LABELS } from "@/lib/constants/marketing";
 import { AdminApplicationsTable } from "./AdminApplicationsTable";
 import { JourneyBar } from "@/components/shared/JourneyBar";
 import { TabBar } from "@/components/shared/TabBar";
 import { formatDate, formatDateTime } from "@/lib/utils/dates";
-import type { Application } from "@/lib/db/schema";
+import type { Application, MarketingStatus } from "@/lib/db/schema";
 import type { DocumentCategory } from "@/lib/db/schema";
 import { documentCategories } from "@/lib/db/schema";
 import { Avatar, Button, Card, CardContent, CardHeader, CardTitle, Input, Select } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
+import { AdminActionDialog } from "@/components/admin/AdminActionDialog";
+import { toast } from "sonner";
 
 const CANDIDATE_TABS = [
   "Profile",
@@ -65,6 +69,12 @@ type CandidateDetail = {
   optType: "OPT" | "STEM_OPT";
   journeyStage: number;
   recruiterId: string | null;
+  marketingStatus: MarketingStatus;
+  marketingReadyAt: Date | null;
+  marketingLiveAt: Date | null;
+  marketingPausedAt: Date | null;
+  marketingCompletedAt: Date | null;
+  marketingNotes: string | null;
   email: string;
   accountState: "pending_setup" | "nda_pending" | "active" | "suspended";
   firstLogin: boolean;
@@ -80,12 +90,23 @@ export function CandidateDetailPage({
   messages,
   passwordHistory,
   latestInvite,
+  assignmentHistory,
+  journeyHistory,
+  marketingReadiness,
   canManageInvites = false,
   canReassignRecruiter = true,
   initialTab = "Profile",
 }: {
   candidate: CandidateDetail;
-  recruiters: { id: string; email: string }[];
+  recruiters: {
+    id: string;
+    email: string;
+    fullName: string;
+    title: string;
+    phone: string | null;
+    maxActiveCandidates: number;
+    isAvailable: boolean;
+  }[];
   applications: Application[];
   documents: {
     id: string;
@@ -121,6 +142,34 @@ export function CandidateDetailPage({
     createdAt: Date;
     status: "active" | "used" | "revoked" | "expired";
   } | null;
+  assignmentHistory: {
+    id: string;
+    recruiterId: string;
+    recruiterEmail: string;
+    recruiterName: string | null;
+    recruiterTitle: string | null;
+    status: string;
+    reason: string | null;
+    assignedAt: Date;
+    endedAt: Date | null;
+    endReason: string | null;
+  }[];
+  journeyHistory: {
+    id: string;
+    stage: number;
+    previousStage: number | null;
+    eventType: string;
+    source: string;
+    note: string | null;
+    candidateVisible: boolean;
+    occurredAt: Date;
+    actorEmail: string | null;
+  }[];
+  marketingReadiness: {
+    ready: boolean;
+    checks: { key: string; label: string; complete: boolean }[];
+    missing: string[];
+  } | null;
   canManageInvites?: boolean;
   canReassignRecruiter?: boolean;
   initialTab?: Tab;
@@ -129,6 +178,7 @@ export function CandidateDetailPage({
   const [tab, setTab] = useState<Tab>(initialTab);
   const [journeyStage, setJourneyStage] = useState(candidate.journeyStage);
   const [recruiterId, setRecruiterId] = useState(candidate.recruiterId ?? "");
+  const [marketingStatus, setMarketingStatus] = useState<MarketingStatus>(candidate.marketingStatus);
   const [reply, setReply] = useState("");
   const [inviteFeedback, setInviteFeedback] = useState<{
     kind: "success" | "error";
@@ -136,19 +186,110 @@ export function CandidateDetailPage({
     previewUrl?: string;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [dialogError, setDialogError] = useState<string | null>(null);
+  const [actionDialog, setActionDialog] = useState<
+    | { type: "journey"; stage: number; requireReason: boolean }
+    | { type: "recruiter"; recruiterId: string }
+    | { type: "marketing"; nextStatus: MarketingStatus; requireReason: boolean }
+    | null
+  >(null);
 
   const handleJourneyChange = (stage: number) => {
-    setJourneyStage(stage);
-    startTransition(async () => {
-      await updateJourneyStage(candidate.id, stage);
-      router.refresh();
-    });
+    if (stage === journeyStage) return;
+    setDialogError(null);
+    setActionDialog({ type: "journey", stage, requireReason: stage < journeyStage });
   };
 
   const handleRecruiterChange = (id: string) => {
-    setRecruiterId(id);
+    if (id === recruiterId) return;
+    setDialogError(null);
+    setActionDialog({ type: "recruiter", recruiterId: id });
+  };
+
+  const handleMarketingChange = (nextStatus: MarketingStatus) => {
+    if (nextStatus === marketingStatus) return;
+    setDialogError(null);
+    setActionDialog({
+      type: "marketing",
+      nextStatus,
+      requireReason: ["paused", "completed", "not_ready"].includes(nextStatus),
+    });
+  };
+
+  const closeActionDialog = () => {
+    if (isPending) return;
+    setActionDialog(null);
+    setDialogError(null);
+  };
+
+  const confirmActionDialog = (values: Record<string, string | boolean>) => {
+    if (!actionDialog) return;
+    const note = String(values.note ?? "").trim();
+
+    if (actionDialog.type === "journey") {
+      if (actionDialog.requireReason && !note) {
+        setDialogError("A reason is required when moving back to an earlier stage.");
+        return;
+      }
+      startTransition(async () => {
+        const result = await updateJourneyStage(
+          candidate.id,
+          actionDialog.stage,
+          note || undefined,
+          true,
+        );
+        if (result.error) {
+          setDialogError(result.error);
+          toast.error(result.error);
+          return;
+        }
+        setJourneyStage(actionDialog.stage);
+        setActionDialog(null);
+        setDialogError(null);
+        router.refresh();
+      });
+      return;
+    }
+
+    if (actionDialog.type === "recruiter") {
+      if (!note) {
+        setDialogError("An assignment reason is required.");
+        return;
+      }
+      startTransition(async () => {
+        const result = await reassignRecruiter(candidate.id, actionDialog.recruiterId, note);
+        if (result.error) {
+          setDialogError(result.error);
+          toast.error(result.error);
+          return;
+        }
+        setRecruiterId(actionDialog.recruiterId);
+        setActionDialog(null);
+        setDialogError(null);
+        router.refresh();
+      });
+      return;
+    }
+
+    if (actionDialog.requireReason && !note) {
+      setDialogError("A reason is required for this marketing status change.");
+      return;
+    }
     startTransition(async () => {
-      await reassignRecruiter(candidate.id, id);
+      const result = await updateMarketingStatusAction({
+        candidateId: candidate.id,
+        nextStatus: actionDialog.nextStatus,
+        note: note || undefined,
+      });
+      if (result.error) {
+        setDialogError(result.error);
+        toast.error(result.error);
+        return;
+      }
+      setMarketingStatus(actionDialog.nextStatus);
+      if (actionDialog.nextStatus === "live" && journeyStage < 2) setJourneyStage(2);
+      setActionDialog(null);
+      setDialogError(null);
       router.refresh();
     });
   };
@@ -233,7 +374,7 @@ export function CandidateDetailPage({
               <option value="">Unassigned</option>
               {recruiters.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.email}
+                  {r.fullName} · {r.email}{r.isAvailable ? "" : " · unavailable"}
                 </option>
               ))}
             </Select>
@@ -256,24 +397,86 @@ export function CandidateDetailPage({
               ))}
             </Select>
           </div>
+          <div>
+            <label htmlFor="marketing-select" className="block text-[11px] font-medium mb-1 text-text-muted">
+              Marketing status
+            </label>
+            <Select
+              id="marketing-select"
+              value={marketingStatus}
+              onChange={(e) => handleMarketingChange(e.target.value as MarketingStatus)}
+              disabled={isPending}
+              className="h-9 text-xs"
+            >
+              {Object.entries(MARKETING_STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </Select>
+          </div>
         </div>
       </Card>
 
       <TabBar tabs={[...CANDIDATE_TABS]} active={tab} onChange={setTab} ariaLabel="Candidate sections" />
 
       {tab === "Profile" && (
-        <Card variant="glass">
-          <CardHeader>
-            <CardTitle>Journey</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <JourneyBar current={journeyStage} big />
-            <p className="text-xs mt-6 text-text-muted">
-              This is the exact stepper {candidate.fullName} sees on their own dashboard.
-              Changing the journey stage dropdown above updates it immediately.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="grid gap-5">
+          <Card variant="glass">
+            <CardHeader>
+              <CardTitle>Journey and marketing readiness</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-6">
+              <JourneyBar current={journeyStage} big />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {marketingReadiness?.checks.map((check) => (
+                  <div key={check.key} className="rounded-xl border border-border-subtle bg-white p-3 text-xs">
+                    <div className={cn("font-semibold", check.complete ? "text-success" : "text-text-muted")}>
+                      {check.complete ? "Complete" : "Required"}
+                    </div>
+                    <div className="mt-1 text-text-primary">{check.label}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-text-muted">
+                Marketing is currently <strong>{MARKETING_STATUS_LABELS[marketingStatus]}</strong>.
+                Stage and marketing changes are written to immutable operational history instead of being inferred from the account creation date.
+              </p>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Card variant="glass">
+              <CardHeader><CardTitle>Recruiter assignment history</CardTitle></CardHeader>
+              <CardContent className="pt-0 space-y-3">
+                {assignmentHistory.length === 0 ? (
+                  <p className="text-xs text-text-muted">No recruiter assignment has been recorded.</p>
+                ) : assignmentHistory.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-border-subtle bg-white p-3 text-xs">
+                    <div className="font-semibold text-text-primary">{item.recruiterName ?? item.recruiterEmail}</div>
+                    <div className="text-text-muted mt-1">Assigned {formatDateTime(item.assignedAt)}</div>
+                    <div className="text-text-muted mt-1">{item.reason || "No assignment reason recorded"}</div>
+                    {item.endedAt && <div className="text-text-muted mt-1">Ended {formatDateTime(item.endedAt)}{item.endReason ? ` · ${item.endReason}` : ""}</div>}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card variant="glass">
+              <CardHeader><CardTitle>Journey event history</CardTitle></CardHeader>
+              <CardContent className="pt-0 space-y-3 max-h-[360px] overflow-y-auto">
+                {journeyHistory.length === 0 ? (
+                  <p className="text-xs text-text-muted">No journey events recorded.</p>
+                ) : journeyHistory.map((event) => (
+                  <div key={event.id} className="rounded-xl border border-border-subtle bg-white p-3 text-xs">
+                    <div className="font-semibold text-text-primary">{JOURNEY_STEPS[event.stage] ?? `Stage ${event.stage + 1}`}</div>
+                    <div className="text-text-muted mt-1">{formatDateTime(event.occurredAt)} · {event.source}</div>
+                    <div className="text-text-muted mt-1">{event.note || event.eventType.replaceAll("_", " ")}</div>
+                    {!event.candidateVisible && <div className="text-[10px] text-warning mt-1">Internal only</div>}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       )}
 
       {tab === "Applications" && (
@@ -488,6 +691,59 @@ export function CandidateDetailPage({
           </CardContent>
         </Card>
       )}
+
+      <AdminActionDialog
+        open={actionDialog !== null}
+        title={
+          actionDialog?.type === "journey"
+            ? actionDialog.requireReason
+              ? "Move journey stage back"
+              : "Update journey stage"
+            : actionDialog?.type === "recruiter"
+              ? actionDialog.recruiterId
+                ? "Assign recruiter"
+                : "Unassign recruiter"
+              : actionDialog?.requireReason
+                ? "Change marketing status"
+                : "Update marketing status"
+        }
+        description={
+          actionDialog?.type === "journey"
+            ? actionDialog.requireReason
+              ? "A reason is required when reopening an earlier stage. Candidates can see this note."
+              : "Optional note is stored on the journey timeline and can be visible to the candidate."
+            : actionDialog?.type === "recruiter"
+              ? "Assignment changes are audited and written to recruiter history."
+              : actionDialog?.requireReason
+                ? "A reason is required when pausing, completing, or returning marketing to not ready."
+                : "Optional note is recorded in journey and marketing history."
+        }
+        fields={[
+          {
+            name: "note",
+            label:
+              actionDialog?.type === "recruiter"
+                ? "Reason"
+                : actionDialog?.requireReason
+                  ? "Reason"
+                  : "Note (optional)",
+            type: "textarea",
+            required: Boolean(
+              actionDialog?.type === "recruiter" ||
+                (actionDialog && "requireReason" in actionDialog && actionDialog.requireReason),
+            ),
+            placeholder:
+              actionDialog?.type === "recruiter"
+                ? "Why is this recruiter being assigned or removed?"
+                : "Add context for this operational change",
+          },
+        ]}
+        confirmLabel="Save change"
+        pending={isPending}
+        error={dialogError}
+        onClose={closeActionDialog}
+        onConfirm={confirmActionDialog}
+      />
     </div>
   );
 }

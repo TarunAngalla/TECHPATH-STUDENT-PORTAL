@@ -1,7 +1,18 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { applicationEvents, applications } from "@/lib/db/schema";
+import { applicationEvents, applications, candidates, candidateJourneyEvents } from "@/lib/db/schema";
 import type { ApplicationStatus } from "@/lib/constants/status-meta";
+
+const JOURNEY_STAGE_THREE_STATUSES: ApplicationStatus[] = [
+  "assessment",
+  "interview_r1",
+  "interview_r2",
+  "interview_r3",
+  "hr_round",
+  "final_round",
+  "decision_pending",
+  "offer",
+];
 
 function nextAppNo(existingAppNos: string[]) {
   let max = 0;
@@ -12,6 +23,32 @@ function nextAppNo(existingAppNos: string[]) {
     if (Number.isFinite(parsed) && parsed > max) max = parsed;
   }
   return `APP-${String(max + 1).padStart(3, "0")}`;
+}
+
+async function advanceJourneyForApplication(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  candidateId: string,
+  status: ApplicationStatus,
+  actorUserId: string,
+) {
+  if (!JOURNEY_STAGE_THREE_STATUSES.includes(status)) return;
+  const [candidate] = await tx
+    .select({ journeyStage: candidates.journeyStage })
+    .from(candidates)
+    .where(eq(candidates.id, candidateId))
+    .limit(1);
+  if (!candidate || candidate.journeyStage >= 3) return;
+  await tx.update(candidates).set({ journeyStage: 3 }).where(eq(candidates.id, candidateId));
+  await tx.insert(candidateJourneyEvents).values({
+    candidateId,
+    stage: 3,
+    previousStage: candidate.journeyStage,
+    eventType: "stage_reached",
+    source: "application",
+    note: "Interview or assessment activity started",
+    candidateVisible: true,
+    createdBy: actorUserId,
+  });
 }
 
 export async function createApplicationWithInitialEvent(input: {
@@ -40,6 +77,7 @@ export async function createApplicationWithInitialEvent(input: {
         applicationId: application.id, candidateId: application.candidateId, eventType: "status_change",
         title: `Application status set to ${input.status}`, status: "completed", occurredAt: new Date(), createdBy: input.actorUserId,
       });
+      await advanceJourneyForApplication(tx, application.candidateId, input.status, input.actorUserId);
     }
     return application;
   });
@@ -69,6 +107,7 @@ export async function updateApplicationWithStatusEvent(input: {
         title: `Application status changed from ${existing.status} to ${input.status}`,
         status: "completed", occurredAt: new Date(), createdBy: input.actorUserId,
       });
+      await advanceJourneyForApplication(tx, updated.candidateId, input.status, input.actorUserId);
     }
     return updated;
   });

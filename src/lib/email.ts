@@ -127,3 +127,42 @@ export async function sendCandidateInviteEmail(input: {
     previewUrl: process.env.NODE_ENV === "production" ? undefined : setupUrl,
   };
 }
+
+export async function sendNdaSignedEmail(input: {
+  to: string;
+  fullName: string;
+  candidateId: string;
+  agreementId: string;
+  templateTitle: string;
+  templateVersion: string;
+  acceptedAt: Date;
+  downloadPath: string;
+  signedPdf: Buffer;
+}) {
+  const downloadUrl = new URL(input.downloadPath, candidatePortalOrigin()).toString();
+  const safeVersion = input.templateVersion.replace(/[^a-zA-Z0-9._-]+/g, "-");
+  return sendTrackedEmail({
+    emailType: "nda_signed_candidate",
+    to: input.to,
+    subject: `Your signed TechPath NDA (version ${input.templateVersion})`,
+    relatedCandidateId: input.candidateId,
+    relatedNdaAgreementId: input.agreementId,
+    text: [
+      `Hi ${input.fullName},`,
+      "",
+      `Your electronic signature for ${input.templateTitle} (version ${input.templateVersion}) was recorded on ${input.acceptedAt.toISOString()}.`,
+      "A copy of the signed PDF is attached to this email.",
+      "You can also access the secure copy while signed in to the TechPath portal:",
+      downloadUrl,
+      "",
+      "— The TechPath Team",
+    ].join("\n"),
+    attachments: [
+      {
+        filename: `TechPath-NDA-${safeVersion}.pdf`,
+        content: input.signedPdf,
+        contentType: "application/pdf",
+      },
+    ],
+  });
+}
