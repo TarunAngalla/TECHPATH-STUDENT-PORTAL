@@ -117,3 +117,7 @@ npm run build
 ```
 
 Do not use `journey_stage` alone to infer dates. Candidate-facing history comes from `candidate_journey_events`, while `candidates.journey_stage` remains the current summary pointer.
+
+## Phase 5: Applications, interviews, and assessments
+
+Phase 5 records each company submission as an application and each interview/assessment as an append-oriented activity event. Recruiters manage activity only for assigned candidates; candidates see only verified candidate-visible fields. Use `npm run phase05:smoke` for the domain metric checks and `npm run db:smoke` for migration validation.

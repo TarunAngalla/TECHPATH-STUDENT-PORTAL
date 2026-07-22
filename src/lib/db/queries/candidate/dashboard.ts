@@ -1,9 +1,10 @@
-import { and, desc, eq, or, sql } from "drizzle-orm";
-import { INTERVIEW_STATUSES } from "@/lib/constants/status-meta";
+import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { INTERVIEW_COMPLETED_STATUSES, UPCOMING_EVENT_STATUSES, summarizeApplicationActivities, type ApplicationEventStatus } from "@/lib/constants/application-activity";
 import { db } from "@/lib/db";
 import {
   announcements,
   announcementReads,
+  applicationEvents,
   applications,
   candidates,
   documents,
@@ -12,15 +13,32 @@ import {
   trainings,
 } from "@/lib/db/schema";
 import { getUnreadMessageCount as getUnreadForUser } from "@/lib/db/queries/shared/messages";
+import { getCandidateVisibleApplicationsByCandidateId } from "@/lib/db/queries/shared/applications";
 
 export { getCandidateByUserId } from "./candidate-helpers";
 
 export async function getDashboardStatsForCandidate(candidateId: string) {
-  const apps = await db
-    .select()
-    .from(applications)
-    .where(eq(applications.candidateId, candidateId))
-    .orderBy(desc(applications.dateApplied));
+  const [apps, activities] = await Promise.all([
+    getCandidateVisibleApplicationsByCandidateId(candidateId),
+    db
+      .select({
+        id: applicationEvents.id,
+        eventType: applicationEvents.eventType,
+        status: applicationEvents.status,
+        scheduledAt: applicationEvents.scheduledAt,
+        completedAt: applicationEvents.completedAt,
+        createdAt: applicationEvents.createdAt,
+      })
+      .from(applicationEvents)
+      .innerJoin(applications, eq(applications.id, applicationEvents.applicationId))
+      .where(
+        and(
+          eq(applicationEvents.candidateId, candidateId),
+          eq(applicationEvents.candidateVisible, true),
+          ne(applications.status, "draft"),
+        ),
+      ),
+  ]);
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -28,12 +46,20 @@ export async function getDashboardStatsForCandidate(candidateId: string) {
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - 7);
 
-  const upcomingThisMonth = apps.filter((a) => {
-    if (!a.upcomingWhen) return false;
-    const when = new Date(a.upcomingWhen);
+  const upcomingActivities = activities
+    .filter((event) => {
+      if (!event.scheduledAt || !UPCOMING_EVENT_STATUSES.includes(event.status as ApplicationEventStatus)) return false;
+      return new Date(event.scheduledAt) >= now;
+    })
+    .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+
+  const upcomingThisMonth = upcomingActivities.filter((event) => {
+    const when = new Date(event.scheduledAt!);
     return when >= monthStart && when <= monthEnd;
   }).length;
 
+  const activityMetrics = summarizeApplicationActivities(activities, now);
+  const { interviewsAttended, assessmentsCompleted, interviewsInProgress: inInterviewProcess } = activityMetrics;
   const appsThisWeek = apps.filter((a) => new Date(a.createdAt) >= weekStart).length;
 
   const trainingRows = await db
@@ -56,11 +82,12 @@ export async function getDashboardStatsForCandidate(candidateId: string) {
     .slice(0, 8);
 
   return {
-    totalApplications: apps.length,
-    inInterviewProcess: apps.filter((a) =>
-      INTERVIEW_STATUSES.includes(a.status as (typeof INTERVIEW_STATUSES)[number]),
-    ).length,
+    totalApplications: apps.filter((app) => app.status !== "draft").length,
+    inInterviewProcess,
+    interviewsAttended,
+    assessmentsCompleted,
     upcomingThisMonth,
+    upcomingInterviewCount: activityMetrics.upcomingInterviews,
     appsThisWeek,
     applications: apps,
     upcoming: apps
@@ -134,14 +161,22 @@ export async function getOnboardingChecklist(candidateId: string) {
     .where(eq(candidates.id, candidateId))
     .limit(1);
 
-  const apps = await db
-    .select()
-    .from(applications)
-    .where(eq(applications.candidateId, candidateId));
+  const [interviewEvidence] = await db
+    .select({ id: applicationEvents.id })
+    .from(applicationEvents)
+    .innerJoin(applications, eq(applications.id, applicationEvents.applicationId))
+    .where(
+      and(
+        eq(applicationEvents.candidateId, candidateId),
+        eq(applicationEvents.eventType, "interview"),
+        eq(applicationEvents.candidateVisible, true),
+        ne(applications.status, "draft"),
+        inArray(applicationEvents.status, INTERVIEW_COMPLETED_STATUSES),
+      ),
+    )
+    .limit(1);
 
-  const hasInterview = apps.some((a) =>
-    ["interview_r1", "interview_r2", "interview_r3", "hr_round", "final_round", "offer"].includes(a.status),
-  );
+  const hasInterview = Boolean(interviewEvidence);
 
   const mockTrainings = await db
     .select({ status: candidateTrainings.status })
@@ -161,7 +196,7 @@ export async function getOnboardingChecklist(candidateId: string) {
     { key: "account", label: "Account created by recruiter", done: true, href: "/settings" },
     { key: "profile", label: "Complete your candidate profile", done: Boolean(candidate?.phone), href: "/settings" },
     { key: "resume", label: "Resume received by TechPath", done: Boolean(resume), href: "/documents" },
-    { key: "interview", label: "Attend your first interview", done: hasInterview, href: "/upcoming" },
+    { key: "interview", label: "Attend your first interview", done: hasInterview, href: "/interview-details" },
     { key: "training", label: "Finish technical mock interview training", done: hasCompletedMock, href: "/trainings" },
   ];
 }

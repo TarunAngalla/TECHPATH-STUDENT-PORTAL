@@ -1,4 +1,4 @@
-import { and, count, desc, eq, or } from "drizzle-orm";
+import { and, count, desc, eq, ne, or } from "drizzle-orm";
 import type { StaffScope } from "@/lib/auth/staff-scope";
 import { db } from "@/lib/db";
 import { applications, candidates, messages, staffProfiles, users } from "@/lib/db/schema";
@@ -38,7 +38,7 @@ export async function getCandidatesList(scope?: StaffScope) {
       const [appCount] = await db
         .select({ count: count() })
         .from(applications)
-        .where(eq(applications.candidateId, c.id));
+        .where(and(eq(applications.candidateId, c.id), ne(applications.status, "draft")));
       const [lastMsg] = await db
         .select({ sentAt: messages.sentAt })
         .from(messages)

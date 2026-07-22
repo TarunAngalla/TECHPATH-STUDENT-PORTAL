@@ -127,10 +127,19 @@ export const applications = pgTable(
     appNo: text("app_no").notNull(),
     companyName: text("company_name").notNull(),
     roleTitle: text("role_title").notNull(),
+    jobLocation: text("job_location"),
+    employmentType: text("employment_type"),
+    applicationSource: text("application_source"),
+    jobUrl: text("job_url"),
+    externalReference: text("external_reference"),
+    submittedBy: uuid("submitted_by").references(() => users.id),
     dateApplied: date("date_applied").notNull(),
     status: text("status", {
       enum: [
+        "draft",
         "applied",
+        "submitted",
+        "under_review",
         "assessment",
         "interview_r1",
         "interview_r2",
@@ -139,10 +148,20 @@ export const applications = pgTable(
         "final_round",
         "decision_pending",
         "offer",
+        "hired",
         "rejected",
+        "withdrawn",
+        "on_hold",
+        "closed",
       ],
     }).notNull(),
+    priority: text("priority", { enum: ["low", "normal", "high"] }).notNull().default("normal"),
     comment: text("comment").notNull().default(""),
+    candidateVisibleNotes: text("candidate_visible_notes"),
+    internalNotes: text("internal_notes"),
+    nextAction: text("next_action"),
+    nextActionAt: timestamp("next_action_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
     upcomingLabel: text("upcoming_label"),
     upcomingWhen: timestamp("upcoming_when", { withTimezone: true }),
     upcomingWithPerson: text("upcoming_with_person"),
@@ -153,6 +172,9 @@ export const applications = pgTable(
   (table) => [
     unique("applications_candidate_app_no_unique").on(table.candidateId, table.appNo),
     index("idx_applications_candidate").on(table.candidateId),
+    index("idx_applications_status").on(table.status, table.updatedAt),
+    index("idx_applications_submitted_by").on(table.submittedBy, table.updatedAt),
+    index("idx_applications_next_action").on(table.nextActionAt),
     index("idx_applications_upcoming").on(table.upcomingWhen),
   ],
 );
@@ -167,12 +189,42 @@ export const applicationEventTypes = [
 
 export const applicationEventStatuses = [
   "pending",
+  "assigned",
   "scheduled",
+  "confirmed",
+  "in_progress",
+  "submitted",
   "completed",
   "cancelled",
   "rescheduled",
+  "no_show",
+  "feedback_pending",
+  "result_pending",
+  "expired",
   "passed",
   "failed",
+] as const;
+
+export const interviewActivityTypes = [
+  "recruiter_screening",
+  "hr_interview",
+  "technical_interview",
+  "managerial_interview",
+  "client_interview",
+  "behavioral_interview",
+  "final_interview",
+  "other",
+] as const;
+
+export const assessmentActivityTypes = [
+  "coding_test",
+  "technical_test",
+  "aptitude_test",
+  "take_home_assignment",
+  "personality_test",
+  "language_test",
+  "client_assessment",
+  "other",
 ] as const;
 
 export const applicationEvents = pgTable(
@@ -186,15 +238,30 @@ export const applicationEvents = pgTable(
       .notNull()
       .references(() => candidates.id, { onDelete: "cascade" }),
     eventType: text("event_type", { enum: [...applicationEventTypes] }).notNull(),
+    activityType: text("activity_type"),
+    eventKey: text("event_key"),
     title: text("title").notNull(),
+    description: text("description"),
     status: text("status", { enum: [...applicationEventStatuses] }).notNull().default("pending"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
+    timezone: text("timezone").notNull().default("UTC"),
     occurredAt: timestamp("occurred_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     result: text("result"),
+    score: text("score"),
+    roundNumber: integer("round_number"),
+    roundName: text("round_name"),
     withPerson: text("with_person"),
+    companyContactName: text("company_contact_name"),
+    companyContactEmail: text("company_contact_email"),
     meetingLink: text("meeting_link"),
+    location: text("location"),
+    externalUrl: text("external_url"),
     preparationNotes: text("preparation_notes"),
+    candidateVisibleNotes: text("candidate_visible_notes"),
     internalNotes: text("internal_notes"),
+    candidateVisible: boolean("candidate_visible").notNull().default(true),
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -202,7 +269,10 @@ export const applicationEvents = pgTable(
   (table) => [
     index("idx_application_events_application").on(table.applicationId, table.createdAt),
     index("idx_application_events_candidate").on(table.candidateId, table.eventType, table.status),
-    index("idx_application_events_schedule").on(table.scheduledAt),
+    index("idx_application_events_schedule").on(table.eventType, table.scheduledAt),
+    uniqueIndex("application_events_event_key_unique")
+      .on(table.applicationId, table.eventKey)
+      .where(sql`${table.eventKey} IS NOT NULL`),
   ],
 );
 
@@ -263,6 +333,7 @@ export const announcements = pgTable("announcements", {
   title: text("title").notNull(),
   body: text("body").notNull(),
   targetCandidateId: uuid("target_candidate_id").references(() => candidates.id),
+  sourceKey: text("source_key").unique(),
   createdBy: uuid("created_by")
     .notNull()
     .references(() => users.id),

@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Briefcase,
+  CalendarCheck,
+  ClipboardCheck,
   FileText,
   GraduationCap,
   LayoutDashboard,
@@ -8,7 +10,6 @@ import {
   MessageCircle,
   Settings,
   TrendingUp,
-  Users,
   Megaphone,
 } from "lucide-react";
 
@@ -16,6 +17,8 @@ export type CandidateNavKey =
   | "dashboard"
   | "progress"
   | "applications"
+  | "interview-details"
+  | "assessments"
   | "upcoming"
   | "trainings"
   | "documents"
@@ -39,7 +42,8 @@ export const CANDIDATE_NAV_SECTIONS: {
     label: "Job search",
     items: [
       { key: "applications", label: "Applications", icon: Briefcase, href: "/applications" },
-      { key: "upcoming", label: "Upcoming", icon: Users, href: "/upcoming" },
+      { key: "interview-details", label: "Interview Details", icon: CalendarCheck, href: "/interview-details" },
+      { key: "assessments", label: "Assessments", icon: ClipboardCheck, href: "/assessments" },
     ],
   },
   {
@@ -67,6 +71,8 @@ export const CANDIDATE_PAGE_TITLES: Record<CandidateNavKey, string> = {
   dashboard: "Dashboard",
   progress: "My progress",
   applications: "Applications",
+  "interview-details": "Interview Details",
+  assessments: "Assessments",
   upcoming: "Upcoming",
   trainings: "Trainings",
   documents: "Documents",

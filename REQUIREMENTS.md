@@ -204,3 +204,13 @@ Recruiter/admin accounts, role assignment (see open question below).
 - Candidate marketing has an explicit lifecycle: `not_ready`, `ready`, `live`, `paused`, `completed`.
 - Marketing launch requires an active candidate account/NDA, active recruiter assignment, resume on file, and candidate contact details.
 - Recruiter contact details shown to candidates must come from staff profile data.
+
+## Phase 5 — Verified application activity
+
+- Staff records each candidate-company-role submission as one application.
+- Interview rounds and assessments are child activity events; the parent application stores only the current summary.
+- Status changes and history writes occur in one transaction.
+- Recruiters may manage only applications for assigned candidates; admins have organization-wide access.
+- Candidates have view-only access to their own candidate-visible application, interview, and assessment data.
+- Internal notes are never serialized to candidate pages.
+- Dashboard metrics count real completed/scheduled events rather than inferring history from one current status.

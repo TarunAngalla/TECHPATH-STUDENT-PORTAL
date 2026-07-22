@@ -121,7 +121,7 @@ function NextUpBanner({ next }: { next: Application }) {
             </DropdownMenuContent>
           </DropdownMenu>
           <Button size="sm" asChild className="text-xs bg-brand-500 hover:bg-brand-600 text-white">
-            <Link href="/upcoming">View details</Link>
+            <Link href="/interview-details">View details</Link>
           </Button>
         </div>
       </div>
@@ -341,7 +341,7 @@ function AnnouncementsCard({
       </div>
 
       <div className="pt-5 border-t border-border-subtle mt-5">
-        <Link href="/upcoming" className="text-xs font-semibold text-brand-500 hover:underline flex items-center justify-center gap-1">
+        <Link href="/interview-details" className="text-xs font-semibold text-brand-500 hover:underline flex items-center justify-center gap-1">
           View My Interviews & Assessments <ChevronRight size={13} />
         </Link>
       </div>
@@ -366,7 +366,10 @@ export function CandidateDashboard({
   stats: {
     totalApplications: number;
     inInterviewProcess: number;
+    interviewsAttended: number;
+    assessmentsCompleted: number;
     upcomingThisMonth: number;
+    upcomingInterviewCount: number;
     appsThisWeek: number;
     applications: Application[];
     upcoming: Application[];
@@ -496,12 +499,12 @@ export function CandidateDashboard({
               </Card>
             </Link>
 
-            <Link href="/applications">
+            <Link href="/interview-details">
               <Card variant="glass" className="p-5 flex items-center justify-between bg-white border border-border-strong/50 shadow-xs hover:border-brand-500/40 transition-colors h-full">
                 <div>
-                  <div className="text-xs text-text-muted font-medium">In interview process</div>
-                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.inInterviewProcess}</div>
-                  <div className="text-[10px] text-text-muted font-semibold mt-1">Active interview stages</div>
+                  <div className="text-xs text-text-muted font-medium">Interviews attended</div>
+                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.interviewsAttended}</div>
+                  <div className="text-[10px] text-text-muted font-semibold mt-1">{stats.upcomingInterviewCount} upcoming</div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-500 border border-brand-500/10">
                   <Users size={18} />
@@ -509,12 +512,12 @@ export function CandidateDashboard({
               </Card>
             </Link>
 
-            <Link href="/upcoming">
+            <Link href="/assessments">
               <Card variant="glass" className="p-5 flex items-center justify-between bg-white border border-border-strong/50 shadow-xs hover:border-brand-500/40 transition-colors h-full">
                 <div>
-                  <div className="text-xs text-text-muted font-medium">Upcoming this month</div>
-                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.upcomingThisMonth}</div>
-                  <div className="text-[10px] text-text-muted font-semibold mt-1">Scheduled events</div>
+                  <div className="text-xs text-text-muted font-medium">Assessments completed</div>
+                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.assessmentsCompleted}</div>
+                  <div className="text-[10px] text-text-muted font-semibold mt-1">Verified assessment activity</div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 border border-purple-500/10">
                   <ClipboardCheck size={18} />

@@ -9,6 +9,6 @@ export {
 } from "./candidate/dashboard";
 
 // Re-export shared queries for backward compatibility
-export { getApplicationsByCandidateId as getApplicationsForCandidate } from "./shared/applications";
+export { getCandidateVisibleApplicationsByCandidateId as getApplicationsForCandidate } from "./shared/applications";
 export { getUpcomingByCandidateId as getUpcomingApplications } from "./shared/applications";
 export { getDocumentsByCandidateId as getDocumentsForCandidate } from "./shared/documents";
