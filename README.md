@@ -81,8 +81,11 @@ Before setting `ENABLE_NDA_GATE=true` in a shared environment, apply migration `
 ## Validation
 
 ```bash
-npm run db:smoke   # applies all migrations to a temporary PostgreSQL schema
-npm run nda:smoke  # validates typed-name evidence and signed-PDF generation
+npm run db:smoke      # applies all migrations to a temporary PostgreSQL schema
+npm run nda:smoke     # typed-name evidence and signed-PDF generation
+npm run phase04:smoke # recruiter assignment / journey / marketing domain checks
+npm run phase05:smoke # application status and interview/assessment metrics
+npm run phase06:smoke # role navigation, resources redirect, admin-only guards
 npm run typecheck
 npm run lint
 npm run build
@@ -90,11 +93,15 @@ npm run build
 
 ## Key documentation
 
+- `DEPLOYMENT_AND_CLIENT_SETUP.md`
 - `docs/CLIENT_ALIGNED_SCOPE.md`
 - `docs/ROLE_PERMISSION_MATRIX.md`
 - `docs/IMPLEMENTATION_CHECKLIST.md`
 - `docs/PHASE_01_02_VERIFICATION.md`
-- `docs/PHASE_03_VALIDATION.md`
+- `docs/PHASE_03_TARGET_VERIFICATION.md`
+- `docs/PHASE_04_TARGET_VERIFICATION.md`
+- `docs/PHASE_05_TARGET_VERIFICATION.md`
+- `docs/PHASE_06_TARGET_VERIFICATION.md`
 
 ## Phase 4 recruiter and marketing operations
 
@@ -121,3 +128,27 @@ Do not use `journey_stage` alone to infer dates. Candidate-facing history comes 
 ## Phase 5: Applications, interviews, and assessments
 
 Phase 5 records each company submission as an application and each interview/assessment as an append-oriented activity event. Recruiters manage activity only for assigned candidates; candidates see only verified candidate-visible fields. Use `npm run phase05:smoke` for the domain metric checks and `npm run db:smoke` for migration validation.
+
+## Phase 6: Client-aligned portals
+
+Phase 6 finalizes role-specific navigation and connects the existing workflows to dedicated staff and candidate views. Admins receive the complete operational pipeline; recruiters receive a candidate-scoped workbench; candidates receive the approved post-NDA view-only navigation and Resources page.
+
+Key routes:
+
+- `/admin/consultations`
+- `/admin/marketing`
+- `/admin/interviews`
+- `/admin/assessments`
+- `/resources` (legacy `/documents` redirects here)
+
+Display dates and times use shared helpers in `src/lib/utils/dates.ts` (`formatDate`, `formatDateTime`, `formatDisplayTimestamp`, `formatIsoTimestampsInText`). Announcement bodies no longer expose raw ISO timestamps.
+
+Validation:
+
+```bash
+npm run phase06:smoke
+npm run typecheck
+npm run lint
+npm run build
+npm run db:smoke
+```

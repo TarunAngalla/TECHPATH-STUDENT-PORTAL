@@ -24,7 +24,7 @@ import {
 import { Avatar, Badge, Button, Card, CardHeader, CardTitle, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui";
 import { dayLabel, daysUntil, formatDate, formatDateTime } from "@/lib/utils/dates";
 import { downloadInterviewICS, getGoogleCalendarLink } from "@/lib/utils/ics";
-import type { Application } from "@/lib/db/schema";
+import type { Application, MarketingStatus } from "@/lib/db/schema";
 import { STATUS_META, type ApplicationStatus } from "@/lib/constants/status-meta";
 import { cn } from "@/lib/utils/cn";
 
@@ -353,6 +353,7 @@ export function CandidateDashboard({
   candidateId,
   candidateName,
   journeyStage,
+  marketingStatus,
   profileLastUpdated,
   stats,
   recruiter,
@@ -362,6 +363,7 @@ export function CandidateDashboard({
   candidateId: string;
   candidateName: string;
   journeyStage: number;
+  marketingStatus: MarketingStatus;
   profileLastUpdated: string;
   stats: {
     totalApplications: number;
@@ -388,7 +390,7 @@ export function CandidateDashboard({
   const uniqueCompanies = new Set(stats.applications.map((a) => a.companyName)).size;
   const nextUp = stats.upcoming[0];
   const emptyApplications = stats.totalApplications === 0;
-  const marketingLive = journeyStage >= 2;
+  const marketingLive = marketingStatus === "live" || marketingStatus === "completed";
 
   const welcomeSubtitle = emptyApplications
     ? marketingLive
@@ -416,9 +418,14 @@ export function CandidateDashboard({
             <p className="text-sm text-text-muted mt-1 max-w-xl">{welcomeSubtitle}</p>
           </div>
           <div className="flex-shrink-0">
-            <Badge variant="accent" className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold">
-              <CheckCircle2 size={12} /> Stage {journeyStage} · Active
-            </Badge>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Badge variant="success" className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold">
+                <ShieldCheck size={12} /> Post-NDA Access
+              </Badge>
+              <Badge variant="accent" className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold">
+                <CheckCircle2 size={12} /> {marketingLive ? "Marketing Live" : `Journey Stage ${journeyStage + 1}`}
+              </Badge>
+            </div>
           </div>
         </div>
 
@@ -469,8 +476,8 @@ export function CandidateDashboard({
               <Link href="/messages">Message recruiter</Link>
             </Button>
             <Button asChild size="sm" variant="outline">
-              <Link href={marketingLive ? "/applications" : "/documents"}>
-                {marketingLive ? "View applications" : "Upload resume"}
+              <Link href={marketingLive ? "/applications" : "/resources"}>
+                {marketingLive ? "View applications" : "View resources"}
               </Link>
             </Button>
           </div>

@@ -1,4 +1,5 @@
 import { sendTrackedEmail } from "@/lib/services/email-delivery";
+import { formatDisplayTimestamp } from "@/lib/utils/dates";
 
 function candidatePortalOrigin() {
   const explicit = process.env.NEXT_PUBLIC_CANDIDATE_PORTAL_URL?.trim();
@@ -150,7 +151,7 @@ export async function sendNdaSignedEmail(input: {
     text: [
       `Hi ${input.fullName},`,
       "",
-      `Your electronic signature for ${input.templateTitle} (version ${input.templateVersion}) was recorded on ${input.acceptedAt.toISOString()}.`,
+      `Your electronic signature for ${input.templateTitle} (version ${input.templateVersion}) was recorded on ${formatDisplayTimestamp(input.acceptedAt)}.`,
       "A copy of the signed PDF is attached to this email.",
       "You can also access the secure copy while signed in to the TechPath portal:",
       downloadUrl,

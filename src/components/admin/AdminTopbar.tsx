@@ -51,7 +51,7 @@ export function AdminTopbar({
         <h1 className="text-base font-semibold truncate text-text-primary">{title}</h1>
       </div>
 
-      <div className="hidden md:flex items-center flex-1 max-w-xs relative">
+      <form action="/admin/candidates" method="get" className="hidden md:flex items-center flex-1 max-w-xs relative">
         <Search
           size={14}
           className="absolute left-3 text-text-muted pointer-events-none"
@@ -62,10 +62,11 @@ export function AdminTopbar({
         </label>
         <Input
           id="admin-search"
+          name="q"
           placeholder="Search candidates..."
           className="pl-9 h-9 text-xs bg-surface/60"
         />
-      </div>
+      </form>
 
       <div className="flex items-center gap-4 flex-shrink-0 relative">
         <button

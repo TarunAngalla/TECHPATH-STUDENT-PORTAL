@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: "How do I update my resume?",
-    a: "Upload your resume on the Documents page, or send the file to your recruiter through Messages if you need them to review it first.",
+    a: "Send your updated resume to your assigned recruiter through Messages. Approved files shared with you appear under Resources; TechPath does not host a candidate self-serve resume upload workflow.",
   },
   {
     q: "How do I change my password?",

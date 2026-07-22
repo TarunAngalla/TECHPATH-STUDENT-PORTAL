@@ -80,9 +80,11 @@ function ResumeUploadZone() {
 export function CandidateDocumentsPage({
   sections,
   allowResumeUpload = false,
+  showBoundaryNote = true,
 }: {
   sections: { title: string; documents: Document[] }[];
   allowResumeUpload?: boolean;
+  showBoundaryNote?: boolean;
 }) {
   const hasDocuments = sections.some((s) => s.documents.length > 0);
 
@@ -134,14 +136,16 @@ export function CandidateDocumentsPage({
         </div>
       )}
 
-      <div
-        className="mt-8 px-4 py-3.5 rounded-xl text-xs flex items-start gap-3 bg-brand-50/15 border border-brand-500/20 text-text-muted font-semibold leading-relaxed"
-        role="note"
-      >
-        <ShieldCheck size={16} className="text-brand-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
-        All official offer letters, payroll, timesheets, and compliance documents are managed
-        securely on radxsys.com.
-      </div>
+      {showBoundaryNote && (
+        <div
+          className="mt-8 px-4 py-3.5 rounded-xl text-xs flex items-start gap-3 bg-brand-50/15 border border-brand-500/20 text-text-muted font-semibold leading-relaxed"
+          role="note"
+        >
+          <ShieldCheck size={16} className="text-brand-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
+          All official offer letters, payroll, timesheets, and compliance documents are managed
+          securely on radxsys.com.
+        </div>
+      )}
     </section>
   );
 }

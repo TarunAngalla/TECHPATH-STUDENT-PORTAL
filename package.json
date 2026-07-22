@@ -18,7 +18,8 @@
     "smoke": "tsx --env-file=.env.local src/scripts/smoke.ts",
     "nda:smoke": "tsx src/scripts/nda-domain-smoke.ts",
     "phase04:smoke": "tsx src/scripts/phase04-domain-smoke.ts",
-    "phase05:smoke": "tsx src/scripts/phase05-domain-smoke.ts"
+    "phase05:smoke": "tsx src/scripts/phase05-domain-smoke.ts",
+    "phase06:smoke": "tsx src/scripts/phase06-domain-smoke.ts"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.20",

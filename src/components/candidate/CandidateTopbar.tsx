@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Bell, HelpCircle, LogOut, Settings, PanelLeft, PanelLeftClose } from "lucide-react";
+import { Bell, HelpCircle, LogOut, MessageCircle, Settings, PanelLeft, PanelLeftClose } from "lucide-react";
 import { candidateLogoutAction } from "@/lib/actions/auth";
 import type { Application } from "@/lib/db/schema";
 import { formatDate } from "@/lib/utils/dates";
@@ -31,6 +31,7 @@ export function CandidateTopbar({
   setMobileOpen,
   candidateName,
   unreadAnnouncements,
+  unreadMessages,
   announcements,
   applications,
   collapsed,
@@ -40,6 +41,7 @@ export function CandidateTopbar({
   setMobileOpen: (open: boolean) => void;
   candidateName: string;
   unreadAnnouncements: number;
+  unreadMessages: number;
   announcements: AnnouncementPreview[];
   applications: Application[];
   collapsed: boolean;
@@ -49,6 +51,7 @@ export function CandidateTopbar({
   const [notifOpen, setNotifOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const recent = announcements.slice(0, 3);
+  const unreadTotal = unreadAnnouncements + unreadMessages;
 
   return (
     <>
@@ -110,16 +113,16 @@ export function CandidateTopbar({
               onClick={() => setNotifOpen(!notifOpen)}
               className="relative p-2 rounded-xl hover:bg-brand-50 transition-colors"
               aria-label={
-                unreadAnnouncements > 0
-                  ? `Notifications, ${unreadAnnouncements} unread`
+                unreadTotal > 0
+                  ? `Notifications, ${unreadTotal} unread`
                   : "Notifications"
               }
               aria-expanded={notifOpen}
             >
               <Bell size={18} className="text-text-muted" aria-hidden="true" />
-              {unreadAnnouncements > 0 && (
+              {unreadTotal > 0 && (
                 <span className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[9px] font-semibold text-text-inverse bg-danger border-[1.5px] border-surface-elevated px-0.5">
-                  {unreadAnnouncements}
+                  {unreadTotal}
                 </span>
               )}
             </button>
@@ -136,6 +139,21 @@ export function CandidateTopbar({
                   <div className="px-4 py-3 text-xs font-medium text-text-primary border-b border-border-subtle">
                     Notifications
                   </div>
+                  {unreadMessages > 0 && (
+                    <Link
+                      href="/messages"
+                      onClick={() => setNotifOpen(false)}
+                      className="flex items-start gap-3 border-b border-border-subtle px-4 py-3 hover:bg-brand-50/60"
+                    >
+                      <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                        <MessageCircle size={14} aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-semibold text-text-primary">Recruiter messages</span>
+                        <span className="block text-[11px] text-text-muted">{unreadMessages} unread message{unreadMessages === 1 ? "" : "s"}</span>
+                      </span>
+                    </Link>
+                  )}
                   {recent.length === 0 ? (
                     <p className="px-4 py-3 text-xs text-text-muted">No announcements yet.</p>
                   ) : (
@@ -187,9 +205,13 @@ export function CandidateTopbar({
                 <Settings size={14} aria-hidden="true" />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/help")}>
+              <DropdownMenuItem onClick={() => router.push("/messages")}>
+                <MessageCircle size={14} aria-hidden="true" />
+                Messages{unreadMessages > 0 ? ` (${unreadMessages})` : ""}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/resources")}>
                 <HelpCircle size={14} aria-hidden="true" />
-                Help
+                Help & Resources
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <form action={candidateLogoutAction}>

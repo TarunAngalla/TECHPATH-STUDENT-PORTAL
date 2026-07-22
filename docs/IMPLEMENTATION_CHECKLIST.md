@@ -51,23 +51,28 @@
 
 ## Phase 4 — Recruiter assignment and candidate journey
 
-- [ ] Recruiter assignment management/history UI.
-- [ ] Staff profiles and real recruiter contact information.
-- [ ] Journey-event driven progress and marketing-live transitions.
+- [x] Recruiter assignment management/history UI.
+- [x] Staff profiles and real recruiter contact information.
+- [x] Journey-event driven progress and marketing-live transitions.
 
 ## Phase 5 — Applications, interviews, and assessments
 
-- [ ] Application-event CRUD service and admin/recruiter UI.
-- [ ] Candidate Interview Details and Assessments pages.
-- [ ] Event-derived metrics and recent activity.
-- [ ] Migration/backfill verification for existing application data.
+- [x] Application-event CRUD service and admin/recruiter UI.
+- [x] Candidate Interview Details and Assessments pages.
+- [x] Event-derived metrics and recent activity.
+- [x] Migration/backfill verification for existing application data.
 
 ## Phase 6 — Client UI alignment
 
-- [ ] Align admin navigation and dashboard cards/pipeline.
-- [ ] Align candidate navigation and post-NDA dashboard.
-- [ ] Keep old routes until replacements exist, then add redirects.
-- [ ] Responsive, empty, loading, error, and accessibility states.
+- [x] Align admin navigation and dashboard cards/pipeline.
+- [x] Align candidate navigation and post-NDA dashboard.
+- [x] Add recruiter-scoped dashboard and workbench navigation.
+- [x] Add consultation, marketing, interview, and assessment staff views.
+- [x] Add candidate Resources and legacy document redirect.
+- [x] Add Phase 6 domain smoke coverage.
+- [x] Keep old routes until replacements exist, then add redirects (`/documents` → `/resources`).
+- [x] Responsive, empty, loading, error, and accessibility states (skip-to-content, sidebar collapse, labeled search).
+- [x] Shared date/time display helpers for announcements and activity UI.
 
 ## Phase 7 — Production readiness
 
@@ -99,4 +104,5 @@
 - [x] Preserve legacy upcoming fields through transactional synchronization
 - [x] Add deduplicated candidate portal announcements
 - [x] Add Phase 5 migration/domain smoke coverage
-- [ ] Complete environment-backed authorization and workflow UAT
+- [x] Complete environment-backed authorization and workflow UAT
+- [x] Format candidate-facing announcement timestamps with shared date helpers

@@ -40,7 +40,7 @@ export async function uploadDocument(formData: FormData) {
     candidateId: parsed.data.candidateId, name: parsed.data.name,
     category: parsed.data.category as (typeof documentCategories)[number], storagePath, fileUrl: null,
   });
-  revalidatePath("/documents"); revalidatePath(`/admin/candidates/${parsed.data.candidateId}`); return {};
+  revalidatePath("/resources"); revalidatePath(`/admin/candidates/${parsed.data.candidateId}`); return {};
 }
 export async function deleteDocument(documentId: string) {
   const staff = await requireStaffAuth();
@@ -49,7 +49,7 @@ export async function deleteDocument(documentId: string) {
   if (!(await assertCandidateInScope(doc.candidateId, getStaffScope(staff)))) return { error: "Forbidden" };
   await deleteStorageFile(doc.storagePath ?? doc.fileUrl);
   await db.delete(documents).where(eq(documents.id, documentId));
-  revalidatePath("/documents"); revalidatePath(`/admin/candidates/${doc.candidateId}`); return {};
+  revalidatePath("/resources"); revalidatePath(`/admin/candidates/${doc.candidateId}`); return {};
 }
 export async function uploadResumeAsCandidate(formData: FormData) {
   const session = await requireCandidatePortalAccess();
@@ -59,5 +59,5 @@ export async function uploadResumeAsCandidate(formData: FormData) {
   const fileError = validateFile(file); if (fileError) return { error: fileError };
   const storagePath = await uploadDocumentFile(session.candidateId!, file.name, Buffer.from(await file.arrayBuffer()), file.type);
   await db.insert(documents).values({ candidateId: session.candidateId!, name: file.name, category: "resume", storagePath, fileUrl: null });
-  revalidatePath("/documents"); revalidatePath("/dashboard"); return {};
+  revalidatePath("/resources"); revalidatePath("/dashboard"); return {};
 }
