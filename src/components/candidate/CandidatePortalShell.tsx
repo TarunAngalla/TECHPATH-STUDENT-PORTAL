@@ -58,6 +58,7 @@ export function CandidatePortalShell({
           setMobileOpen={setMobileOpen}
           candidateName={candidateName}
           unreadAnnouncements={unreadAnnouncements}
+          unreadMessages={messageBadge}
           announcements={announcements}
           applications={applications}
           collapsed={collapsed}

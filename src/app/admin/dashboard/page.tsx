@@ -19,6 +19,7 @@ export default async function AdminDashboardPage() {
   return (
     <AdminDashboard
       staffName={staffDisplayName(session.email)}
+      staffRole={scope.role}
       portalLabel={staffPortalSubtitle(scope.role)}
       newLeads={stats.newLeads}
       consultations={stats.consultations}

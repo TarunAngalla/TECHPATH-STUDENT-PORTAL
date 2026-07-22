@@ -214,3 +214,13 @@ Recruiter/admin accounts, role assignment (see open question below).
 - Candidates have view-only access to their own candidate-visible application, interview, and assessment data.
 - Internal notes are never serialized to candidate pages.
 - Dashboard metrics count real completed/scheduled events rather than inferring history from one current status.
+
+## Phase 6 — Client-aligned portal experience
+
+- Admin primary modules are Dashboard, Enquiries, Consultations, Candidates, NDA Signatures, Recruiter Assignments, Marketing Progress, Applications, Interviews, Assessments, Announcements, Reports, and Settings.
+- Recruiters use a scoped workspace and never receive the admin enquiry, NDA, assignment-control, team, or organization-report navigation.
+- Candidate primary navigation is Dashboard, My Progress, Trainings, Interview Details, Assessments, Announcements, Resources, and Account Settings.
+- Candidate applications, messages, and help remain available as contextual or secondary routes without expanding candidate mutation permissions.
+- Staff interview and assessment screens are views over `application_events`, not separate duplicate domain models.
+- The candidate Resources screen uses authorized private documents and clearly keeps offer letters, payroll, timesheets, and compliance in Radxsys.
+- No screenshot count, recruiter identity, company activity, or progress value may be hardcoded.

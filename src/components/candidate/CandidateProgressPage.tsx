@@ -42,14 +42,14 @@ const STAGE_INFO: Record<
     meaning:
       "Your profile is now live and being actively submitted to open roles by your recruiter and their partner network. This is usually the longest stage — most candidates are here for several weeks while applications and first-round conversations build up.",
     nextAction:
-      "Nothing required from you right now beyond staying reachable. Watch for interview requests under Upcoming, and keep an eye on Applications in case a company sends a take-home task.",
+      "Stay reachable and review Interview Details, Assessments, and Announcements for recruiter-verified updates.",
   },
   3: {
     title: JOURNEY_STEPS[3],
     meaning:
       "You're in active interview and assessment stages with one or more companies. Your recruiter is coordinating scheduling and prep notes for each round.",
     nextAction:
-      "Review upcoming interviews under Upcoming, complete any assigned assessments, and keep your recruiter updated via Messages.",
+      "Review Interview Details, complete any assigned Assessments, and keep your recruiter updated through the secure message thread.",
   },
 };
 

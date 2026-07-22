@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils/cn";
 
 type DashboardProps = {
   staffName: string;
+  staffRole: "admin" | "recruiter";
   portalLabel: string;
   newLeads: number;
   consultations: number;
@@ -146,6 +147,7 @@ function downloadCsv(rows: DashboardProps["exportRows"]) {
 
 export function AdminDashboard({
   staffName,
+  staffRole,
   portalLabel,
   newLeads,
   consultations,
@@ -166,58 +168,114 @@ export function AdminDashboard({
   candidateNames,
   exportRows,
 }: DashboardProps) {
-  const statCards = [
-    {
-      label: "New Enquiries",
-      value: newLeads,
-      hint: "Open leads",
-      icon: UserPlus,
-      iconBg: "bg-green-50 text-green-600 border border-green-100",
-    },
-    {
-      label: "Consultation Bookings",
-      value: consultations,
-      hint: "Consultation source",
-      icon: Calendar,
-      iconBg: "bg-blue-50 text-blue-600 border border-blue-100",
-    },
-    {
-      label: "Active Candidates",
-      value: activeCandidates,
-      hint: "Portal accounts",
-      icon: Users,
-      iconBg: "bg-purple-50 text-purple-600 border border-purple-100",
-    },
-    {
-      label: "NDAs Pending",
-      value: ndasPending,
-      hint: "Awaiting signature",
-      icon: Lock,
-      iconBg: "bg-orange-50 text-orange-600 border border-orange-100",
-    },
-    {
-      label: "Recruiters Assigned",
-      value: recruitersAssigned,
-      hint: "With workload",
-      icon: CheckCircle,
-      iconBg: "bg-teal-50 text-teal-600 border border-teal-100",
-    },
-    {
-      label: "Interviews This Week",
-      value: interviewsThisWeek,
-      hint: `${interviewsInProgress} in progress`,
-      icon: Clock,
-      iconBg: "bg-blue-50 text-blue-600 border border-blue-100",
-    },
-  ];
+  const isRecruiter = staffRole === "recruiter";
+  const applicationTotal = exportRows.reduce((total, row) => total + row.applications, 0);
+  const assessmentTotal = marketingProgress.reduce((total, row) => total + row.assessments, 0);
 
-  const pipeline = [
-    { label: "Enquiry Received", value: funnel.enquiries, conversion: null as string | null },
-    { label: "Consultation Completed", value: funnel.consultations, conversion: funnel.conversions.consultations },
-    { label: "Portal Access Granted", value: funnel.portalAccess, conversion: funnel.conversions.portal },
-    { label: "Marketing Live", value: funnel.marketingLive, conversion: funnel.conversions.marketing },
-    { label: "Interviews in Progress", value: funnel.interviewsInProgress, conversion: funnel.conversions.interviews },
-  ];
+  const statCards = isRecruiter
+    ? [
+        {
+          label: "My Candidates",
+          value: activeCandidates,
+          hint: "Assigned active accounts",
+          icon: Users,
+          iconBg: "bg-purple-50 text-purple-600 border border-purple-100",
+        },
+        {
+          label: "Marketing Live",
+          value: funnel.marketingLive,
+          hint: "Profiles actively marketed",
+          icon: TrendingUp,
+          iconBg: "bg-green-50 text-green-600 border border-green-100",
+        },
+        {
+          label: "Applications",
+          value: applicationTotal,
+          hint: "Verified submissions",
+          icon: FileText,
+          iconBg: "bg-blue-50 text-blue-600 border border-blue-100",
+        },
+        {
+          label: "Interviews This Week",
+          value: interviewsThisWeek,
+          hint: `${interviewsInProgress} in progress`,
+          icon: Clock,
+          iconBg: "bg-teal-50 text-teal-600 border border-teal-100",
+        },
+        {
+          label: "Assessments",
+          value: assessmentTotal,
+          hint: "Recorded activity",
+          icon: CheckCircle,
+          iconBg: "bg-orange-50 text-orange-600 border border-orange-100",
+        },
+        {
+          label: "Unread Messages",
+          value: unreadMessages,
+          hint: "Candidate follow-ups",
+          icon: MessageCircle,
+          iconBg: "bg-blue-50 text-blue-600 border border-blue-100",
+        },
+      ]
+    : [
+        {
+          label: "New Enquiries",
+          value: newLeads,
+          hint: "Open enquiries",
+          icon: UserPlus,
+          iconBg: "bg-green-50 text-green-600 border border-green-100",
+        },
+        {
+          label: "Consultation Bookings",
+          value: consultations,
+          hint: "Scheduled or completed",
+          icon: Calendar,
+          iconBg: "bg-blue-50 text-blue-600 border border-blue-100",
+        },
+        {
+          label: "Active Candidates",
+          value: activeCandidates,
+          hint: "Portal accounts",
+          icon: Users,
+          iconBg: "bg-purple-50 text-purple-600 border border-purple-100",
+        },
+        {
+          label: "NDAs Pending",
+          value: ndasPending,
+          hint: "Awaiting signature",
+          icon: Lock,
+          iconBg: "bg-orange-50 text-orange-600 border border-orange-100",
+        },
+        {
+          label: "Recruiters Assigned",
+          value: recruitersAssigned,
+          hint: "Candidates with owners",
+          icon: CheckCircle,
+          iconBg: "bg-teal-50 text-teal-600 border border-teal-100",
+        },
+        {
+          label: "Interviews This Week",
+          value: interviewsThisWeek,
+          hint: `${interviewsInProgress} in progress`,
+          icon: Clock,
+          iconBg: "bg-blue-50 text-blue-600 border border-blue-100",
+        },
+      ];
+
+  const pipeline = isRecruiter
+    ? [
+        { label: "Assigned Candidates", value: activeCandidates, conversion: null as string | null },
+        { label: "Portal Active", value: funnel.portalAccess, conversion: null },
+        { label: "Marketing Live", value: funnel.marketingLive, conversion: funnel.conversions.marketing },
+        { label: "Interviews in Progress", value: funnel.interviewsInProgress, conversion: funnel.conversions.interviews },
+      ]
+    : [
+        { label: "Enquiry Received", value: funnel.enquiries, conversion: null as string | null },
+        { label: "Consultation Completed", value: funnel.consultations, conversion: funnel.conversions.consultations },
+        { label: "Portal Access Granted", value: funnel.portalAccess, conversion: funnel.conversions.portal },
+        { label: "Marketing Live", value: funnel.marketingLive, conversion: funnel.conversions.marketing },
+        { label: "Interviews in Progress", value: funnel.interviewsInProgress, conversion: funnel.conversions.interviews },
+      ];
 
   return (
     <div className="grid gap-6">
@@ -272,7 +330,7 @@ export function AdminDashboard({
 
       <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs p-5">
         <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider mb-4">
-          Candidate Pipeline
+          {isRecruiter ? "My Candidate Pipeline" : "Candidate Pipeline"}
         </h3>
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-y-3 lg:gap-y-0">
           {pipeline.map((step, i) => (
@@ -291,6 +349,38 @@ export function AdminDashboard({
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {isRecruiter ? (
+          <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs flex flex-col justify-between overflow-hidden">
+            <div>
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border-subtle px-5 py-4">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                  Candidates Needing Attention
+                </CardTitle>
+                <Link href="/admin/candidates" className="text-xs font-semibold text-brand-500 hover:underline">View All</Link>
+              </CardHeader>
+              <div className="p-4 space-y-3">
+                {marketingProgress.length === 0 ? (
+                  <p className="py-4 text-center text-xs text-text-muted">No assigned candidates yet.</p>
+                ) : (
+                  marketingProgress.slice(0, 6).map((row) => (
+                    <Link key={row.candidateId} href={`/admin/candidates/${row.candidateId}`} className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle px-3 py-2.5 hover:bg-surface/50">
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-semibold text-text-primary">{row.candidateName}</span>
+                        <span className="block text-[10px] text-text-muted">{row.appCount} applications · {row.interviews} interviews</span>
+                      </span>
+                      <Badge variant={row.appCount === 0 ? "warning" : "muted"} className="text-[9px]">
+                        {row.appCount === 0 ? "Needs activity" : "Review"}
+                      </Badge>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="border-t border-border-subtle p-3.5 text-center bg-surface/10">
+              <Link href="/admin/marketing" className="text-xs font-semibold text-brand-500 hover:underline">Open marketing work queue →</Link>
+            </div>
+          </Card>
+        ) : (
         <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs flex flex-col justify-between overflow-hidden">
           <div>
             <CardHeader className="flex flex-row items-center justify-between border-b border-border-subtle px-5 py-4">
@@ -342,12 +432,13 @@ export function AdminDashboard({
             </Link>
           </div>
         </Card>
+        )}
 
         <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs flex flex-col justify-between overflow-hidden">
           <div>
             <CardHeader className="flex flex-row items-center justify-between border-b border-border-subtle px-5 py-4">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-text-primary">
-                Recruiter Assignments
+                {isRecruiter ? "My Assigned Candidates" : "Recruiter Assignments"}
               </CardTitle>
               <Link href="/admin/candidates" className="text-xs font-semibold text-brand-500 hover:underline">
                 View All
@@ -393,7 +484,7 @@ export function AdminDashboard({
           </div>
           <div className="border-t border-border-subtle p-3.5 text-center bg-surface/10">
             <Link href="/admin/candidates" className="text-xs font-semibold text-brand-500 hover:underline">
-              Manage assignments →
+              {isRecruiter ? "View my candidates →" : "Manage assignments →"}
             </Link>
           </div>
         </Card>
@@ -404,8 +495,8 @@ export function AdminDashboard({
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-text-primary">
                 Marketing Progress
               </CardTitle>
-              <Link href="/admin/reports" className="text-xs font-semibold text-brand-500 hover:underline">
-                View Report
+              <Link href="/admin/marketing" className="text-xs font-semibold text-brand-500 hover:underline">
+                View All
               </Link>
             </CardHeader>
             <div className="p-4 space-y-3.5">
@@ -430,8 +521,8 @@ export function AdminDashboard({
             </div>
           </div>
           <div className="border-t border-border-subtle p-3.5 text-center bg-surface/10">
-            <Link href="/admin/candidates" className="text-xs font-semibold text-brand-500 hover:underline">
-              View all candidates →
+            <Link href="/admin/marketing" className="text-xs font-semibold text-brand-500 hover:underline">
+              View marketing progress →
             </Link>
           </div>
         </Card>
@@ -441,7 +532,7 @@ export function AdminDashboard({
         <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs p-5 flex flex-col justify-between">
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary mb-4">
-              Admin Notifications
+              {isRecruiter ? "Activity Notifications" : "Admin Notifications"}
             </h3>
             <div className="space-y-3.5">
               {recentAudit.slice(0, 4).map((a) => (
@@ -492,7 +583,7 @@ export function AdminDashboard({
 
         <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs p-5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary mb-4">
-            Conversion Trend (Weekly)
+            {isRecruiter ? "Weekly Placement Activity" : "Conversion Trend (Weekly)"}
           </h3>
           <div className="h-48 w-full text-xs">
             <ResponsiveContainer width="100%" height="100%">
@@ -501,25 +592,33 @@ export function AdminDashboard({
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={9} tickLine={false} />
                 <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} allowDecimals={false} />
                 <ChartTooltip />
-                <Line type="monotone" dataKey="Enquiries" stroke="#64748b" strokeWidth={1.5} dot={{ r: 2 }} />
-                <Line type="monotone" dataKey="Consultations" stroke="#3b82f6" strokeWidth={1.5} dot={{ r: 2 }} />
+                {!isRecruiter && <Line type="monotone" dataKey="Enquiries" stroke="#64748b" strokeWidth={1.5} dot={{ r: 2 }} />}
+                {!isRecruiter && <Line type="monotone" dataKey="Consultations" stroke="#3b82f6" strokeWidth={1.5} dot={{ r: 2 }} />}
                 <Line type="monotone" dataKey="Portal" stroke="#2563eb" strokeWidth={1.5} dot={{ r: 2 }} />
                 <Line type="monotone" dataKey="Marketing" stroke="#10b981" strokeWidth={1.5} dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="Interviews" stroke="#8b5cf6" strokeWidth={1.5} dot={{ r: 2 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
           <div className="flex items-center justify-center gap-3.5 mt-3 flex-wrap text-[9px] font-semibold text-text-muted">
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" /> Enquiry
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" /> Consultation
-            </span>
+            {!isRecruiter && (
+              <>
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" /> Enquiry
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" /> Consultation
+                </span>
+              </>
+            )}
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" /> Portal
             </span>
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" /> Marketing
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block" /> Interviews
             </span>
           </div>
         </Card>
@@ -530,51 +629,37 @@ export function AdminDashboard({
               Quick Reports
             </h3>
             <div className="space-y-2">
-              <Link
-                href="/admin/reports"
-                className="flex items-center justify-between p-3 rounded-xl border border-border-strong/30 hover:bg-surface text-xs font-semibold text-text-primary transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <FileText size={14} className="text-brand-500" />
-                  <span>Enquiry Source Report</span>
-                </span>
-                <ChevronRight size={14} className="text-text-muted/60" />
-              </Link>
-              <Link
-                href="/admin/reports"
-                className="flex items-center justify-between p-3 rounded-xl border border-border-strong/30 hover:bg-surface text-xs font-semibold text-text-primary transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <TrendingUp size={14} className="text-brand-500" />
-                  <span>Conversion Funnel Report</span>
-                </span>
-                <ChevronRight size={14} className="text-text-muted/60" />
-              </Link>
-              <Link
-                href="/admin/reports"
-                className="flex items-center justify-between p-3 rounded-xl border border-border-strong/30 hover:bg-surface text-xs font-semibold text-text-primary transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <Users size={14} className="text-brand-500" />
-                  <span>Recruiter Performance Report</span>
-                </span>
-                <ChevronRight size={14} className="text-text-muted/60" />
-              </Link>
-              <Link
-                href="/admin/reports"
-                className="flex items-center justify-between p-3 rounded-xl border border-border-strong/30 hover:bg-surface text-xs font-semibold text-text-primary transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <Inbox size={14} className="text-brand-500" />
-                  <span>Marketing Activity Report</span>
-                </span>
-                <ChevronRight size={14} className="text-text-muted/60" />
-              </Link>
+              {(isRecruiter
+                ? [
+                    { href: "/admin/applications", label: "Applications Work Queue", icon: FileText },
+                    { href: "/admin/interviews", label: "Upcoming Interviews", icon: Clock },
+                    { href: "/admin/assessments", label: "Assessment Follow-ups", icon: CheckCircle },
+                    { href: "/admin/marketing", label: "Marketing Activity", icon: TrendingUp },
+                  ]
+                : [
+                    { href: "/admin/reports", label: "Enquiry Source Report", icon: FileText },
+                    { href: "/admin/reports", label: "Conversion Funnel Report", icon: TrendingUp },
+                    { href: "/admin/reports", label: "Recruiter Performance Report", icon: Users },
+                    { href: "/admin/reports", label: "Marketing Activity Report", icon: Inbox },
+                  ]
+              ).map(({ href, label, icon: QuickIcon }) => (
+                <Link
+                  key={label}
+                  href={href}
+                  className="flex items-center justify-between p-3 rounded-xl border border-border-strong/30 hover:bg-surface text-xs font-semibold text-text-primary transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <QuickIcon size={14} className="text-brand-500" />
+                    <span>{label}</span>
+                  </span>
+                  <ChevronRight size={14} className="text-text-muted/60" />
+                </Link>
+              ))}
             </div>
           </div>
           <div className="border-t border-border-subtle pt-4 mt-5">
-            <Link href="/admin/reports" className="text-xs font-semibold text-brand-500 hover:underline">
-              View all reports →
+            <Link href={isRecruiter ? "/admin/applications" : "/admin/reports"} className="text-xs font-semibold text-brand-500 hover:underline">
+              {isRecruiter ? "Open placement workspace →" : "View all reports →"}
             </Link>
           </div>
         </Card>

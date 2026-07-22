@@ -376,9 +376,11 @@ function LeadDecisionPanel({ lead, onUpdated }: { lead: Lead; onUpdated: () => v
 export function LeadsTable({
   leads: initialLeads,
   recruiters,
+  view = "enquiries",
 }: {
   leads: Lead[];
   recruiters: { id: string; email: string }[];
+  view?: "enquiries" | "consultations";
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<LeadStatus | "all">("all");
@@ -446,10 +448,10 @@ export function LeadsTable({
         <div className="flex items-center flex-1 relative">
           <Search size={14} className="absolute left-3 text-text-muted pointer-events-none" aria-hidden="true" />
           <Input
-            aria-label="Search enquiries"
+            aria-label={view === "consultations" ? "Search consultations" : "Search enquiries"}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name, email, or role"
+            placeholder={view === "consultations" ? "Search consultations by name, email, or role" : "Search by name, email, or role"}
             className="pl-9 h-9 text-xs"
           />
         </div>
@@ -464,12 +466,14 @@ export function LeadsTable({
             <option key={key} value={key}>{value.label}</option>
           ))}
         </Select>
-        <Button type="button" size="sm" onClick={() => setShowNewLead((value) => !value)}>
-          <Plus size={13} aria-hidden="true" /> New enquiry
-        </Button>
+        {view === "enquiries" && (
+          <Button type="button" size="sm" onClick={() => setShowNewLead((value) => !value)}>
+            <Plus size={13} aria-hidden="true" /> New enquiry
+          </Button>
+        )}
       </div>
 
-      {showNewLead && (
+      {view === "enquiries" && showNewLead && (
         <Card variant="glass" className="p-5 mb-4 bg-white border border-border-strong/50 shadow-xs">
           <form onSubmit={handleCreateLead} className="grid sm:grid-cols-2 gap-3">
             <Input required value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Full name" />
@@ -492,11 +496,15 @@ export function LeadsTable({
         </Card>
       )}
 
-      <p className="text-xs mb-3 text-text-muted">{filtered.length} of {leads.length} enquiries</p>
+      <p className="text-xs mb-3 text-text-muted">
+        {filtered.length} of {leads.length} {view === "consultations" ? "consultations" : "enquiries"}
+      </p>
 
       <Card variant="glass" className="overflow-hidden">
         {filtered.length === 0 ? (
-          <p className="text-xs p-6 text-center text-text-muted">No enquiries match the current filters.</p>
+          <p className="text-xs p-6 text-center text-text-muted">
+            No {view === "consultations" ? "consultations" : "enquiries"} match the current filters.
+          </p>
         ) : (
           filtered.map((lead, index) => (
             <div key={lead.id} className={cn(index > 0 && "border-t border-border-subtle")}>

@@ -14,6 +14,7 @@ import {
   type ApplicationEventStatus,
 } from "@/lib/constants/application-activity";
 import type { ApplicationStatus } from "@/lib/constants/status-meta";
+import { formatDisplayTimestamp } from "@/lib/utils/dates";
 
 
 const APPLICATION_PROGRESS_RANK: Partial<Record<ApplicationStatus, number>> = {
@@ -414,9 +415,12 @@ export async function createApplicationActivity(input: {
     await syncLegacyUpcomingSummary(tx, input.applicationId);
 
     if (input.candidateVisible !== false) {
+      const when = input.scheduledAt
+        ? ` · ${formatDisplayTimestamp(input.scheduledAt, input.timezone ?? "UTC")}`
+        : "";
       await tx.insert(announcements).values({
         title: input.eventType === "interview" ? "Interview update" : "Assessment update",
-        body: `${application.companyName} · ${input.title}${input.scheduledAt ? ` · ${input.scheduledAt.toISOString()}` : ""}`,
+        body: `${application.companyName} · ${input.title}${when}`,
         targetCandidateId: application.candidateId,
         sourceKey: `application-event:${event.id}:created`,
         createdBy: input.actorUserId,

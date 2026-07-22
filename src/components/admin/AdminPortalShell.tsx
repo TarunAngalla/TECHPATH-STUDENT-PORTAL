@@ -30,10 +30,18 @@ export function AdminPortalShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const navKey = adminPathToNavKey(pathname);
-  const title = ADMIN_PAGE_TITLES[navKey];
+  const title = staffRole === "recruiter" && navKey === "candidates"
+    ? "My Candidates"
+    : ADMIN_PAGE_TITLES[navKey];
 
   return (
     <div className="min-h-screen flex">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2.5 glass rounded-xl text-sm font-medium text-text-primary shadow-elevated"
+      >
+        Skip to main content
+      </a>
       <AdminSidebar
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}

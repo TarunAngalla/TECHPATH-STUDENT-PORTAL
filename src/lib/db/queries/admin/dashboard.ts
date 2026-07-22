@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import { ASSESSMENT_COMPLETED_STATUSES, INTERVIEW_COMPLETED_STATUSES, UPCOMING_EVENT_STATUSES, type ApplicationEventStatus } from "@/lib/constants/application-activity";
 import type { StaffScope } from "@/lib/auth/staff-scope";
 import { db } from "@/lib/db";
@@ -49,7 +49,7 @@ export async function getDashboardStats(scope?: StaffScope) {
     ? await db
         .select({ count: count() })
         .from(leads)
-        .where(eq(leads.source, "consultation_booked"))
+        .where(ne(leads.consultationStatus, "not_scheduled"))
     : [{ count: 0 }];
 
   const [allLeadsCount] = canViewEnquiries
@@ -244,7 +244,7 @@ export async function getDashboardStats(scope?: StaffScope) {
 
     const leadRows = canViewEnquiries
       ? await db
-          .select({ source: leads.source, createdAt: leads.createdAt })
+          .select({ source: leads.source, consultationStatus: leads.consultationStatus, createdAt: leads.createdAt })
           .from(leads)
           .where(and(gte(leads.createdAt, start), lt(leads.createdAt, end)))
       : [];
@@ -266,7 +266,7 @@ export async function getDashboardStats(scope?: StaffScope) {
     weeklyTrend.push({
       name: weekLabel(start),
       Enquiries: leadRows.filter((l) => l.source === "enquiry_form").length,
-      Consultations: leadRows.filter((l) => l.source === "consultation_booked").length,
+      Consultations: leadRows.filter((l) => l.consultationStatus !== "not_scheduled").length,
       Portal: candidatesCreated.length,
       Marketing: candidatesCreated.filter((c) => c.marketingStatus === "live").length,
       Interviews: activitiesInWeek.filter((activity) => activity.eventType === "interview").length,

@@ -3,7 +3,7 @@
 import { Megaphone } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { formatDate } from "@/lib/utils/dates";
+import { formatDate, formatIsoTimestampsInText } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 
 export function AnnouncementCard({
@@ -19,6 +19,7 @@ export function AnnouncementCard({
   isRead: boolean;
   onMarkRead?: () => void;
 }) {
+  const displayBody = formatIsoTimestampsInText(body);
   return (
     <Card
       variant="glass"
@@ -48,7 +49,7 @@ export function AnnouncementCard({
         )}>
           <Megaphone size={12} aria-hidden="true" />
         </div>
-        <time className="text-xs text-text-muted font-semibold" dateTime={String(createdAt)}>
+        <time className="text-xs text-text-muted font-semibold" dateTime={toValidDateTimeAttr(createdAt)}>
           {formatDate(createdAt)}
         </time>
         {!isRead && (
@@ -66,7 +67,12 @@ export function AnnouncementCard({
         )}
       </div>
       <h3 className="text-sm font-bold mb-1 text-text-primary leading-tight">{title}</h3>
-      <p className="text-xs text-text-muted leading-relaxed font-medium mt-1.5">{body}</p>
+      <p className="text-xs text-text-muted leading-relaxed font-medium mt-1.5">{displayBody}</p>
     </Card>
   );
+}
+
+function toValidDateTimeAttr(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }

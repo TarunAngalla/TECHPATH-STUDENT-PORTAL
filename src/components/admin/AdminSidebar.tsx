@@ -30,10 +30,13 @@ export function AdminSidebar({
   const pathname = usePathname();
   const navSections = ADMIN_NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter(
-      (item) =>
-        !(staffRole === "recruiter" && (item.key === "team" || item.key === "leads" || item.key === "nda")),
-    ),
+    displayLabel: staffRole === "recruiter" ? section.recruiterLabel ?? section.label : section.label,
+    items: section.items
+      .filter((item) => staffRole === "admin" || item.audience === "staff")
+      .map((item) => ({
+        ...item,
+        displayLabel: staffRole === "recruiter" ? item.recruiterLabel ?? item.label : item.label,
+      })),
   })).filter((section) => section.items.length > 0);
 
   return (
@@ -69,7 +72,7 @@ export function AdminSidebar({
             <div key={section.label} className={si > 0 ? "mt-5" : ""}>
               {!collapsed && (
                 <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                  {section.label}
+                  {section.displayLabel}
                 </div>
               )}
               <div className="space-y-0.5">
@@ -95,10 +98,10 @@ export function AdminSidebar({
                           ? "bg-brand-500 text-white shadow-sm"
                           : "text-white/70 hover:text-white hover:bg-white/6",
                       )}
-                      title={collapsed ? item.label : undefined}
+                      title={collapsed ? item.displayLabel : undefined}
                     >
                       <item.icon size={17} aria-hidden="true" />
-                      {!collapsed && <span className="flex-1">{item.label}</span>}
+                      {!collapsed && <span className="flex-1">{item.displayLabel}</span>}
                       {badge != null && badge > 0 && (
                         <Badge
                           variant="accent"

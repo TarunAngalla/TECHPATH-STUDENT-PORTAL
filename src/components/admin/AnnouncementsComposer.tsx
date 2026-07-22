@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Megaphone, Plus } from "lucide-react";
 import { createAnnouncement } from "@/lib/actions/announcements";
-import { formatDate } from "@/lib/utils/dates";
+import { formatDate, formatIsoTimestampsInText } from "@/lib/utils/dates";
 import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui";
 
 type Announcement = {
@@ -156,7 +156,7 @@ export function AnnouncementsComposer({
                   {formatDate(a.createdAt)}
                 </span>
               </div>
-              <p className="text-xs mb-3 whitespace-pre-wrap text-text-muted font-medium leading-relaxed pl-8 mt-1.5">{a.body}</p>
+              <p className="text-xs mb-3 whitespace-pre-wrap text-text-muted font-medium leading-relaxed pl-8 mt-1.5">{formatIsoTimestampsInText(a.body)}</p>
               <div className="pl-8">
                 <Badge variant={a.targetCandidateId ? "accent" : "muted"} className="text-[9px] font-bold px-1.5 py-0.5 rounded-md border border-border-strong/10">
                   {candidateName(a.targetCandidateId)}

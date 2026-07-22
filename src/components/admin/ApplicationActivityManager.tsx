@@ -8,7 +8,7 @@ import { APPLICATION_EVENT_STATUSES, ASSESSMENT_ACTIVITY_TYPES, ASSESSMENT_TYPE_
 import { APPLICATION_STATUS_OPTIONS, type ApplicationStatus } from "@/lib/constants/status-meta";
 import type { Application, ApplicationEvent } from "@/lib/db/schema";
 import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui";
-import { formatDateTime } from "@/lib/utils/dates";
+import { formatDateTime, fromDateTimeLocalValue, toDateTimeLocalValue } from "@/lib/utils/dates";
 
 function blankToNull(value: string) { return value.trim() ? value.trim() : null; }
 
@@ -45,8 +45,8 @@ function ActivityForm({ applicationId }: { applicationId: string }) {
         startTransition(async () => {
           const result = await createApplicationActivityAction({
             applicationId, eventKey: crypto.randomUUID(), eventType: kind, activityType, title, status,
-            scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
-            scheduledEndAt: scheduledEndAt ? new Date(scheduledEndAt).toISOString() : null,
+            scheduledAt: fromDateTimeLocalValue(scheduledAt),
+            scheduledEndAt: fromDateTimeLocalValue(scheduledEndAt),
             timezone, roundNumber: kind === "interview" && roundNumber ? Number(roundNumber) : null,
             withPerson: blankToNull(withPerson), meetingLink: blankToNull(meetingLink), externalUrl: blankToNull(externalUrl),
             preparationNotes: blankToNull(candidateNotes), candidateVisibleNotes: blankToNull(candidateNotes),
@@ -79,8 +79,8 @@ function ActivityForm({ applicationId }: { applicationId: string }) {
 function EventRow({ event }: { event: ApplicationEvent }) {
   const router = useRouter();
   const [status, setStatus] = useState<string>(event.status);
-  const [scheduledAt, setScheduledAt] = useState(event.scheduledAt ? new Date(event.scheduledAt).toISOString().slice(0, 16) : "");
-  const [scheduledEndAt, setScheduledEndAt] = useState(event.scheduledEndAt ? new Date(event.scheduledEndAt).toISOString().slice(0, 16) : "");
+  const [scheduledAt, setScheduledAt] = useState(toDateTimeLocalValue(event.scheduledAt));
+  const [scheduledEndAt, setScheduledEndAt] = useState(toDateTimeLocalValue(event.scheduledEndAt));
   const [meetingLink, setMeetingLink] = useState(event.meetingLink ?? "");
   const [externalUrl, setExternalUrl] = useState(event.externalUrl ?? "");
   const [result, setResult] = useState(event.result ?? "");
@@ -106,8 +106,8 @@ function EventRow({ event }: { event: ApplicationEvent }) {
         const response = await updateApplicationActivityAction({
           eventId: event.id,
           status,
-          scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
-          scheduledEndAt: scheduledEndAt ? new Date(scheduledEndAt).toISOString() : null,
+          scheduledAt: fromDateTimeLocalValue(scheduledAt),
+          scheduledEndAt: fromDateTimeLocalValue(scheduledEndAt),
           meetingLink: blankToNull(meetingLink),
           externalUrl: blankToNull(externalUrl),
           result: blankToNull(result),
@@ -125,7 +125,7 @@ export function ApplicationActivityManager({ application, events, candidateName 
   const router = useRouter();
   const [status, setStatus] = useState<ApplicationStatus>(application.status as ApplicationStatus);
   const [nextAction, setNextAction] = useState(application.nextAction ?? "");
-  const [nextActionAt, setNextActionAt] = useState(application.nextActionAt ? new Date(application.nextActionAt).toISOString().slice(0,16) : "");
+  const [nextActionAt, setNextActionAt] = useState(toDateTimeLocalValue(application.nextActionAt));
   const [candidateNotes, setCandidateNotes] = useState(application.candidateVisibleNotes ?? application.comment ?? "");
   const [internalNotes, setInternalNotes] = useState(application.internalNotes ?? "");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -147,7 +147,7 @@ export function ApplicationActivityManager({ application, events, candidateName 
           <Button loading={pending} disabled={pending} onClick={() => startTransition(async () => {
             setSaveError(null);
             setSaveOk(false);
-            const response = await updateApplicationAdmin({ applicationId: application.id, status, nextAction: blankToNull(nextAction), nextActionAt: nextActionAt ? new Date(nextActionAt).toISOString() : null, candidateVisibleNotes: blankToNull(candidateNotes), internalNotes: blankToNull(internalNotes) });
+            const response = await updateApplicationAdmin({ applicationId: application.id, status, nextAction: blankToNull(nextAction), nextActionAt: fromDateTimeLocalValue(nextActionAt), candidateVisibleNotes: blankToNull(candidateNotes), internalNotes: blankToNull(internalNotes) });
             if (response.error) { setSaveError(response.error); return; }
             setSaveOk(true);
             router.refresh();

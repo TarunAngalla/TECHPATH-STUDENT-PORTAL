@@ -21,11 +21,13 @@ type CandidateRow = {
 export function CandidatesTable({
   candidates,
   scopedToRecruiter = false,
+  initialQuery = "",
 }: {
   candidates: CandidateRow[];
   scopedToRecruiter?: boolean;
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
 
   const filtered = candidates.filter((c) =>
     c.fullName.toLowerCase().includes(query.toLowerCase()),
