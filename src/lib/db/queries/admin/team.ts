@@ -1,6 +1,6 @@
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { staffProfiles, users } from "@/lib/db/schema";
 import { getDashboardStats } from "./dashboard";
 import { getCandidatesList } from "./candidates";
 
@@ -11,9 +11,32 @@ export async function getReportsData() {
 }
 
 export async function getStaffUsers() {
-  return db
-    .select({ id: users.id, email: users.email, role: users.role, createdAt: users.createdAt })
+  const rows = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      role: users.role,
+      createdAt: users.createdAt,
+      fullName: staffProfiles.fullName,
+      title: staffProfiles.title,
+      phone: staffProfiles.phone,
+      timezone: staffProfiles.timezone,
+      maxActiveCandidates: staffProfiles.maxActiveCandidates,
+      isAvailable: staffProfiles.isAvailable,
+    })
     .from(users)
+    .leftJoin(staffProfiles, eq(staffProfiles.userId, users.id))
     .where(inArray(users.role, ["recruiter", "admin"]))
     .orderBy(users.email);
+
+  return rows.map((row) => ({
+    ...row,
+    fullName:
+      row.fullName ??
+      row.email.split("@")[0].replaceAll(".", " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+    title: row.title ?? (row.role === "admin" ? "Administrator" : "Talent Marketing Specialist"),
+    timezone: row.timezone ?? "America/Chicago",
+    maxActiveCandidates: row.maxActiveCandidates ?? 20,
+    isAvailable: row.isAvailable ?? true,
+  }));
 }

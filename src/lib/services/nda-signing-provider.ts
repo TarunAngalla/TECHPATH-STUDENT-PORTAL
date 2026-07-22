@@ -1,11 +1,22 @@
-export type NdaSigningRequest = {
+export type NdaSigningContext = {
+  agreementId: string;
   candidateId: string;
   candidateEmail: string;
   candidateName: string;
   templateId: string;
+  templateTitle: string;
   templateVersion: string;
   templateContent: string;
-  returnUrl: string;
+  templateHash: string;
+  acceptedAt: Date;
+  signerIp?: string | null;
+  signerUserAgent?: string | null;
+  consentText: string;
+};
+
+export type NdaSigningSubmission = {
+  signerName: string;
+  consentAccepted: boolean;
 };
 
 export type NdaSigningEvidence = {
@@ -14,17 +25,20 @@ export type NdaSigningEvidence = {
   signerName: string;
   acceptedAt: Date;
   consentText: string;
-  signerIp?: string;
-  signerUserAgent?: string;
+  signerIp?: string | null;
+  signerUserAgent?: string | null;
   signedDocument: Buffer;
   signedDocumentHash: string;
 };
 
 /**
- * Legal/product approval selects the implementation. The portal workflow depends
- * on this interface rather than directly coupling to typed-name or a vendor SDK.
+ * Phase 3 uses an in-portal typed-name implementation. A vendor adapter can
+ * implement this contract later without changing the NDA state machine.
  */
 export interface NdaSigningProvider {
-  createSigningSession(request: NdaSigningRequest): Promise<{ redirectUrl: string }>;
-  verifyAndCollectEvidence(input: unknown): Promise<NdaSigningEvidence>;
+  readonly name: string;
+  collectEvidence(
+    context: NdaSigningContext,
+    submission: NdaSigningSubmission,
+  ): Promise<NdaSigningEvidence>;
 }

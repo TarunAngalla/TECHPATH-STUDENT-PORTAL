@@ -8,13 +8,17 @@ import {
   MessageCircle,
   Settings,
   ShieldCheck,
+  FileSignature,
   Users,
+  UsersRound,
 } from "lucide-react";
 
 export type AdminNavKey =
   | "dashboard"
   | "leads"
   | "candidates"
+  | "assignments"
+  | "nda"
   | "trainings"
   | "announcements"
   | "reports"
@@ -43,6 +47,8 @@ export const ADMIN_NAV_SECTIONS: {
     items: [
       { key: "leads", label: "Leads Inbox", icon: Inbox, href: "/admin/leads", badgeKey: "newLeads" },
       { key: "candidates", label: "Candidates", icon: Users, href: "/admin/candidates" },
+      { key: "assignments", label: "Recruiter Assignments", icon: UsersRound, href: "/admin/assignments" },
+      { key: "nda", label: "NDA Signatures", icon: FileSignature, href: "/admin/nda" },
       { key: "messages", label: "Messages", icon: MessageCircle, href: "/admin/messages" },
     ],
   },
@@ -70,6 +76,8 @@ export const ADMIN_PAGE_TITLES: Record<AdminNavKey, string> = {
   dashboard: "Dashboard",
   leads: "Leads Inbox",
   candidates: "Candidates",
+  assignments: "Recruiter Assignments",
+  nda: "NDA Signatures",
   trainings: "Trainings Library",
   announcements: "Announcements",
   reports: "Reports",

@@ -1,26 +1,27 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { hashPassword, logAudit } from "@/lib/auth/password";
-import { requireAdminAuth, requireStaffAuth } from "@/lib/auth/guards";
-import { getStaffScope } from "@/lib/auth/staff-scope";
+import { requireAdminAuth } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
-import { assertCandidateInScope } from "@/lib/db/queries/admin/candidates";
 import {
   candidateJourneyEvents,
   candidateRecruiterAssignments,
   candidateTrainings,
   candidates,
   leads,
+  staffProfiles,
   trainings,
   users,
 } from "@/lib/db/schema";
 import { sendCandidateInviteEmail } from "@/lib/email";
 import { serverFeatures } from "@/lib/config/features";
 import { createCandidateInvite } from "@/lib/services/candidate-invites";
+import { assignRecruiterAction, unassignRecruiterAction } from "@/lib/actions/recruiter-assignments";
+import { updateCandidateJourneyStageAction } from "@/lib/actions/marketing";
 
 const createSchema = z.object({
   leadId: z.string().uuid(),
@@ -67,6 +68,35 @@ export async function createCandidateFromLead(data: z.infer<typeof createSchema>
   const unusablePasswordHash = await hashPassword(randomBytes(48).toString("base64url"));
 
   const result = await db.transaction(async (tx) => {
+    if (recruiterId) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${recruiterId}, 3))`);
+      await tx.execute(sql`select id from users where id = ${recruiterId} for update`);
+      const [profile] = await tx
+        .select({
+          maxActiveCandidates: staffProfiles.maxActiveCandidates,
+          isAvailable: staffProfiles.isAvailable,
+        })
+        .from(staffProfiles)
+        .where(eq(staffProfiles.userId, recruiterId))
+        .limit(1);
+      const [active] = await tx
+        .select({ count: count() })
+        .from(candidateRecruiterAssignments)
+        .where(
+          and(
+            eq(candidateRecruiterAssignments.recruiterId, recruiterId),
+            eq(candidateRecruiterAssignments.status, "active"),
+          ),
+        );
+      const capacity = profile?.maxActiveCandidates ?? 20;
+      if (profile?.isAvailable === false) {
+        throw new Error("The selected recruiter is not accepting new assignments.");
+      }
+      if (Number(active?.count ?? 0) >= capacity) {
+        throw new Error(`The selected recruiter is at capacity (${capacity}).`);
+      }
+    }
+
     const [user] = await tx
       .insert(users)
       .values({
@@ -115,6 +145,17 @@ export async function createCandidateFromLead(data: z.infer<typeof createSchema>
         assignedBy: admin.userId,
         status: "active",
         reason: "Initial candidate assignment",
+      });
+      await tx.update(candidates).set({ journeyStage: 1 }).where(eq(candidates.id, candidate.id));
+      await tx.insert(candidateJourneyEvents).values({
+        candidateId: candidate.id,
+        stage: 1,
+        previousStage: 0,
+        eventType: "stage_reached",
+        source: "assignment",
+        note: "Recruiter assigned to candidate",
+        candidateVisible: true,
+        createdBy: admin.userId,
       });
     }
 
@@ -189,88 +230,27 @@ export async function createCandidateFromLead(data: z.infer<typeof createSchema>
   };
 }
 
-export async function updateJourneyStage(candidateId: string, journeyStage: number) {
-  const session = await requireStaffAuth();
-  if (!(await assertCandidateInScope(candidateId, getStaffScope(session)))) {
-    return { error: "Forbidden" };
-  }
-  if (!Number.isInteger(journeyStage) || journeyStage < 0 || journeyStage > 3) {
-    return { error: "Invalid journey stage" };
-  }
-
-  await db.transaction(async (tx) => {
-    const [candidate] = await tx
-      .select({ journeyStage: candidates.journeyStage })
-      .from(candidates)
-      .where(eq(candidates.id, candidateId))
-      .limit(1);
-    if (!candidate) throw new Error("Candidate not found");
-
-    await tx.update(candidates).set({ journeyStage }).where(eq(candidates.id, candidateId));
-    await tx.insert(candidateJourneyEvents).values({
-      candidateId,
-      stage: journeyStage,
-      eventType: journeyStage < candidate.journeyStage ? "stage_reopened" : "stage_reached",
-      createdBy: session.userId,
-    });
+export async function updateJourneyStage(
+  candidateId: string,
+  journeyStage: number,
+  note?: string,
+  candidateVisible = true,
+) {
+  return updateCandidateJourneyStageAction({
+    candidateId,
+    stage: journeyStage,
+    note,
+    candidateVisible,
   });
-
-  revalidatePath(`/admin/candidates/${candidateId}`);
-  revalidatePath("/admin/candidates");
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/dashboard");
-  revalidatePath("/progress");
-  return {};
 }
 
-export async function reassignRecruiter(candidateId: string, recruiterId: string) {
-  const admin = await requireAdminAuth();
-  const [recruiter] = await db
-    .select({ id: users.id, role: users.role })
-    .from(users)
-    .where(eq(users.id, recruiterId))
-    .limit(1);
-  if (!recruiter || recruiter.role !== "recruiter") {
-    return { error: "Select a valid recruiter" };
+export async function reassignRecruiter(
+  candidateId: string,
+  recruiterId: string,
+  reason = "Updated from candidate profile",
+) {
+  if (!recruiterId) {
+    return unassignRecruiterAction({ candidateId, reason });
   }
-
-  await db.transaction(async (tx) => {
-    const [candidate] = await tx
-      .select({ id: candidates.id, recruiterId: candidates.recruiterId })
-      .from(candidates)
-      .where(eq(candidates.id, candidateId))
-      .limit(1);
-    if (!candidate) throw new Error("Candidate not found");
-    if (candidate.recruiterId === recruiterId) return;
-
-    await tx
-      .update(candidateRecruiterAssignments)
-      .set({ status: "ended", endedAt: new Date() })
-      .where(
-        and(
-          eq(candidateRecruiterAssignments.candidateId, candidateId),
-          eq(candidateRecruiterAssignments.status, "active"),
-        ),
-      );
-    await tx.update(candidates).set({ recruiterId }).where(eq(candidates.id, candidateId));
-    await tx.insert(candidateRecruiterAssignments).values({
-      candidateId,
-      recruiterId,
-      assignedBy: admin.userId,
-      status: "active",
-      reason: candidate.recruiterId ? "Recruiter reassignment" : "Recruiter assigned",
-    });
-  });
-
-  await logAudit({
-    actorUserId: admin.userId,
-    action: "reassign_candidate_recruiter",
-    targetTable: "candidates",
-    targetId: candidateId,
-  });
-  revalidatePath(`/admin/candidates/${candidateId}`);
-  revalidatePath("/admin/candidates");
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/dashboard");
-  return {};
+  return assignRecruiterAction({ candidateId, recruiterId, reason });
 }

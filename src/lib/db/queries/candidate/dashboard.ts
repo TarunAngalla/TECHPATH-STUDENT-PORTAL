@@ -160,7 +160,7 @@ export async function getOnboardingChecklist(candidateId: string) {
   return [
     { key: "account", label: "Account created by recruiter", done: true, href: "/settings" },
     { key: "profile", label: "Complete your candidate profile", done: Boolean(candidate?.phone), href: "/settings" },
-    { key: "resume", label: "Upload your resume", done: Boolean(resume), href: "/documents" },
+    { key: "resume", label: "Resume received by TechPath", done: Boolean(resume), href: "/documents" },
     { key: "interview", label: "Attend your first interview", done: hasInterview, href: "/upcoming" },
     { key: "training", label: "Finish technical mock interview training", done: hasCompletedMock, href: "/trainings" },
   ];

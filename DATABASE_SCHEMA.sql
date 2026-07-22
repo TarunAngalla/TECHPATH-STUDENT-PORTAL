@@ -1,7 +1,7 @@
 -- LEGACY REFERENCE ONLY — DO NOT APPLY
--- Canonical schema: src/lib/db/schema.ts + ordered drizzle/0000–0003 migrations.
--- Use `npm run db:migrate`. This dump is historical and incomplete relative to Phase 0–2
--- (missing account_state, invites, NDA foundations, application_events, consultation fields,
+-- Canonical schema: src/lib/db/schema.ts + ordered drizzle/0000–0004 migrations.
+-- Use `npm run db:migrate`. This dump is historical and incomplete relative to Phase 0–3
+-- (missing account_state, invites, complete NDA signing/evidence fields, application_events, consultation fields,
 -- email_delivery_logs, rate limits, and the corrected messages/message_reads shape).
 -- Client-aligned scope (NDA gate, secure invites, enquiry workflow) supersedes older
 -- "no NDA" notes that may appear in commented sections below.
@@ -183,3 +183,32 @@ CREATE INDEX idx_applications_upcoming ON applications(upcoming_when) WHERE upco
 CREATE INDEX idx_messages_candidate ON messages(candidate_id, sent_at);
 CREATE INDEX idx_candidates_recruiter ON candidates(recruiter_id);
 CREATE INDEX idx_leads_status ON leads(status);
+
+-- Phase 4 additions (migration source of truth: drizzle/0005_recruiter_journey_marketing.sql)
+CREATE TABLE IF NOT EXISTS staff_profiles (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT 'Talent Marketing Specialist',
+  phone TEXT,
+  timezone TEXT NOT NULL DEFAULT 'America/Chicago',
+  max_active_candidates INTEGER NOT NULL DEFAULT 20 CHECK (max_active_candidates > 0),
+  is_available BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- candidates now also contains:
+-- marketing_status TEXT NOT NULL DEFAULT 'not_ready'
+-- marketing_ready_at, marketing_live_at, marketing_paused_at, marketing_completed_at TIMESTAMPTZ
+-- marketing_notes TEXT
+-- valid marketing_status values: not_ready, ready, live, paused, completed
+
+-- candidate_recruiter_assignments now also contains:
+-- ended_by UUID REFERENCES users(id)
+-- end_reason TEXT
+-- and a partial unique index allowing only one active assignment per candidate.
+
+-- candidate_journey_events now also contains:
+-- previous_stage SMALLINT
+-- source TEXT NOT NULL DEFAULT 'manual'
+-- candidate_visible BOOLEAN NOT NULL DEFAULT true

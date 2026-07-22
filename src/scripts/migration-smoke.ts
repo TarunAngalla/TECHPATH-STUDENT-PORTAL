@@ -65,6 +65,17 @@ async function main() {
     await assertColumn(sql, "leads", "consultation_scheduled_at");
     await assertColumn(sql, "leads", "consultation_completed_at");
     await assertColumn(sql, "leads", "consultation_notes");
+    await assertColumn(sql, "candidate_nda_agreements", "signing_provider");
+    await assertColumn(sql, "candidate_nda_agreements", "provider_envelope_id");
+    await assertColumn(sql, "candidate_nda_agreements", "signing_started_at");
+    await assertColumn(sql, "email_delivery_logs", "related_nda_agreement_id");
+    await assertColumn(sql, "candidates", "marketing_status");
+    await assertColumn(sql, "candidates", "marketing_live_at");
+    await assertColumn(sql, "candidate_recruiter_assignments", "ended_by");
+    await assertColumn(sql, "candidate_recruiter_assignments", "end_reason");
+    await assertColumn(sql, "candidate_journey_events", "previous_stage");
+    await assertColumn(sql, "candidate_journey_events", "source");
+    await assertColumn(sql, "candidate_journey_events", "candidate_visible");
 
     for (const table of [
       "candidate_invites",
@@ -75,6 +86,7 @@ async function main() {
       "application_events",
       "public_request_rate_limits",
       "email_delivery_logs",
+      "staff_profiles",
     ]) {
       await assertTable(sql, table);
     }
@@ -88,6 +100,94 @@ async function main() {
     `;
     if ((legacyColumns[0]?.count ?? 0) !== 0) {
       throw new Error("Legacy message columns still exist");
+    }
+
+
+
+    const [admin] = await sql<{ id: string }[]>`
+      insert into users(email, password_hash, role, first_login, account_state)
+      values ('nda-admin@example.com', 'hash', 'admin', false, 'active')
+      returning id
+    `;
+    const [candidateUser] = await sql<{ id: string }[]>`
+      insert into users(email, password_hash, role, first_login, account_state)
+      values ('nda-candidate@example.com', 'hash', 'candidate', false, 'nda_pending')
+      returning id
+    `;
+    const [candidate] = await sql<{ id: string }[]>`
+      insert into candidates(user_id, full_name, opt_type)
+      values (${candidateUser.id}, 'Migration Smoke Candidate', 'OPT')
+      returning id
+    `;
+    const [template] = await sql<{ id: string }[]>`
+      insert into nda_templates(version, title, content, document_hash, effective_from, is_active, created_by)
+      values ('smoke-v1', 'Smoke NDA', repeat('Smoke NDA content. ', 10), repeat('a', 64), now(), true, ${admin.id})
+      returning id
+    `;
+    const [agreement] = await sql<{ id: string }[]>`
+      insert into candidate_nda_agreements(candidate_id, template_id, status, signing_provider, signing_started_at)
+      values (${candidate.id}, ${template.id}, 'signing', 'typed_name_v1', now())
+      returning id
+    `;
+    await sql`
+      update candidate_nda_agreements
+      set status = 'signed', accepted_at = now(), signer_name = 'Migration Smoke Candidate',
+          signed_document_path = 'candidate/nda/smoke.pdf', signed_document_hash = repeat('b', 64),
+          consent_text = 'Migration smoke consent', signing_started_at = null
+      where id = ${agreement.id}
+    `;
+
+    let immutableEvidenceBlocked = false;
+    try {
+      await sql`
+        update candidate_nda_agreements
+        set signer_name = 'Tampered Candidate'
+        where id = ${agreement.id}
+      `;
+    } catch {
+      immutableEvidenceBlocked = true;
+    }
+    if (!immutableEvidenceBlocked) throw new Error("Signed NDA evidence mutation was not blocked");
+
+    await sql`
+      insert into email_delivery_logs(email_type, recipient, subject, status, related_candidate_id, related_nda_agreement_id)
+      values ('nda_signed_candidate', 'nda-candidate@example.com', 'Signed NDA', 'logged', ${candidate.id}, ${agreement.id})
+    `;
+
+    const [recruiter] = await sql<{ id: string }[]>`
+      insert into users(email, password_hash, role, first_login, account_state)
+      values ('phase4-recruiter@example.com', 'hash', 'recruiter', false, 'active')
+      returning id
+    `;
+    await sql`
+      insert into staff_profiles(user_id, full_name, max_active_candidates, is_available)
+      values (${recruiter.id}, 'Phase Four Recruiter', 5, true)
+    `;
+    await sql`
+      update candidates
+      set recruiter_id = ${recruiter.id}, marketing_status = 'ready', marketing_ready_at = now()
+      where id = ${candidate.id}
+    `;
+    await sql`
+      insert into candidate_recruiter_assignments(candidate_id, recruiter_id, assigned_by, reason)
+      values (${candidate.id}, ${recruiter.id}, ${admin.id}, 'Migration smoke assignment')
+    `;
+    await sql`
+      insert into candidate_journey_events(candidate_id, stage, previous_stage, event_type, source, note, candidate_visible, created_by)
+      values (${candidate.id}, 1, 0, 'stage_reached', 'assignment', 'Recruiter assigned', true, ${admin.id})
+    `;
+
+    let duplicateActiveAssignmentBlocked = false;
+    try {
+      await sql`
+        insert into candidate_recruiter_assignments(candidate_id, recruiter_id, assigned_by, reason)
+        values (${candidate.id}, ${recruiter.id}, ${admin.id}, 'Duplicate should fail')
+      `;
+    } catch {
+      duplicateActiveAssignmentBlocked = true;
+    }
+    if (!duplicateActiveAssignmentBlocked) {
+      throw new Error("Multiple active recruiter assignments were not blocked");
     }
 
     console.log(`Migration smoke passed: ${migrationFiles.join(", ")}`);

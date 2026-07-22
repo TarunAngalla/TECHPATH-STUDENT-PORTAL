@@ -1,13 +1,13 @@
 "use server";
 
-import { eq, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { changePassword } from "@/lib/auth/password";
 import { requireAdminAuth, requireCandidatePortalAccess, requireStaffAuth } from "@/lib/auth/guards";
 import { serverFeatures } from "@/lib/config/features";
 import { db } from "@/lib/db";
-import { candidates, users } from "@/lib/db/schema";
+import { candidates, candidateRecruiterAssignments, staffProfiles, users } from "@/lib/db/schema";
 
 export async function updateCandidatePhone(phone: string) {
   const session = await requireCandidatePortalAccess();
@@ -68,10 +68,22 @@ export async function createStaffUser(email: string, role: "recruiter" | "admin"
   const { hashPassword, logAudit } = await import("@/lib/auth/password");
   const passwordHash = await hashPassword(password);
 
-  const [user] = await db
-    .insert(users)
-    .values({ email: email.toLowerCase(), passwordHash, role, firstLogin: false })
-    .returning();
+  const [user] = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(users)
+      .values({ email: email.toLowerCase(), passwordHash, role, firstLogin: false })
+      .returning();
+    const localName = created.email
+      .split("@")[0]
+      .replaceAll(".", " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+    await tx.insert(staffProfiles).values({
+      userId: created.id,
+      fullName: localName,
+      title: role === "admin" ? "Administrator" : "Talent Marketing Specialist",
+    });
+    return [created];
+  });
 
   await logAudit({
     actorUserId: session.userId,
@@ -87,6 +99,30 @@ export async function createStaffUser(email: string, role: "recruiter" | "admin"
 export async function updateStaffRole(userId: string, role: "recruiter" | "admin") {
   const session = await requireAdminAuth();
   if (session.userId === userId) return { error: "You cannot change your own active role." };
+
+  const [existing] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!existing || !["recruiter", "admin"].includes(existing.role)) {
+    return { error: "Staff user not found." };
+  }
+  if (existing.role === "recruiter" && role === "admin") {
+    const [active] = await db
+      .select({ count: count() })
+      .from(candidateRecruiterAssignments)
+      .where(
+        and(
+          eq(candidateRecruiterAssignments.recruiterId, userId),
+          eq(candidateRecruiterAssignments.status, "active"),
+        ),
+      );
+    if (Number(active?.count ?? 0) > 0) {
+      return { error: "Reassign this recruiter's active candidates before changing the role." };
+    }
+  }
+
   await db.update(users).set({ role, sessionVersion: sql`${users.sessionVersion} + 1` }).where(eq(users.id, userId));
 
   const { logAudit } = await import("@/lib/auth/password");

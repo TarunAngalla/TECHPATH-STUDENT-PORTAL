@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lte } from "drizzle-orm";
 import { serverFeatures } from "@/lib/config/features";
 import { db } from "@/lib/db";
 import {
@@ -67,7 +67,7 @@ export async function getCandidateAccessState(userId: string): Promise<Candidate
   const [activeTemplate] = await db
     .select({ id: ndaTemplates.id })
     .from(ndaTemplates)
-    .where(eq(ndaTemplates.isActive, true))
+    .where(and(eq(ndaTemplates.isActive, true), lte(ndaTemplates.effectiveFrom, new Date())))
     .orderBy(desc(ndaTemplates.effectiveFrom))
     .limit(1);
   if (!activeTemplate) {

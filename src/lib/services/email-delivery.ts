@@ -15,6 +15,8 @@ type TrackedEmailInput = {
   relatedLeadId?: string;
   relatedCandidateId?: string;
   relatedInviteId?: string;
+  relatedNdaAgreementId?: string;
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
 };
 
 type ResendResponse = { id?: string };
@@ -40,6 +42,7 @@ export async function sendTrackedEmail(input: TrackedEmailInput) {
       relatedLeadId: input.relatedLeadId,
       relatedCandidateId: input.relatedCandidateId,
       relatedInviteId: input.relatedInviteId,
+      relatedNdaAgreementId: input.relatedNdaAgreementId,
     })
     .returning({ id: emailDeliveryLogs.id });
 
@@ -73,6 +76,14 @@ export async function sendTrackedEmail(input: TrackedEmailInput) {
         to: [recipient],
         subject: input.subject,
         text: input.text,
+        ...(input.attachments?.length
+          ? {
+              attachments: input.attachments.map((attachment) => ({
+                filename: attachment.filename,
+                content: attachment.content.toString("base64"),
+              })),
+            }
+          : {}),
       }),
     });
 

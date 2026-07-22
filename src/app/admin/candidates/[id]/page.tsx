@@ -18,6 +18,9 @@ import {
 import { getPasswordChangeHistory } from "@/lib/db/queries/candidate/dashboard";
 import { CandidateDetailPage } from "@/components/admin/CandidateDetailPage";
 import { getLatestCandidateInvite } from "@/lib/services/candidate-invites";
+import { getRecruiterAssignmentHistory } from "@/lib/services/recruiter-assignments";
+import { getMarketingReadiness } from "@/lib/services/candidate-journey";
+import { getCandidateJourneyHistoryForStaff } from "@/lib/db/queries/admin/assignments";
 
 const VALID_TABS = [
   "Profile",
@@ -60,6 +63,9 @@ export default async function AdminCandidateDetailPage({
     messages,
     passwordHistory,
     latestInvite,
+    assignmentHistory,
+    journeyHistory,
+    marketingReadiness,
   ] = await Promise.all([
       getRecruiters(),
       getApplicationsByCandidateId(id),
@@ -69,6 +75,9 @@ export default async function AdminCandidateDetailPage({
       getConversationMessages(candidate.userId, session.userId),
       getPasswordChangeHistory(candidate.userId),
       getLatestCandidateInvite(candidate.id),
+      getRecruiterAssignmentHistory(candidate.id),
+      getCandidateJourneyHistoryForStaff(candidate.id),
+      getMarketingReadiness(candidate.id),
     ]);
 
   const mappedMessages = messages.map((m) => ({
@@ -96,6 +105,9 @@ export default async function AdminCandidateDetailPage({
       messages={mappedMessages}
       passwordHistory={passwordHistory}
       latestInvite={latestInvite}
+      assignmentHistory={assignmentHistory}
+      journeyHistory={journeyHistory}
+      marketingReadiness={marketingReadiness}
       canManageInvites={scope.seesAllCandidates}
       canReassignRecruiter={scope.seesAllCandidates}
       initialTab={resolvedTab}

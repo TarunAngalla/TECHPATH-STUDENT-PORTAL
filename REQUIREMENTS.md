@@ -15,7 +15,7 @@ A staffing/placement platform for OPT and STEM OPT candidates, consisting of **t
 
 The **existing public marketing site** (thetechpath.com) is not part of this build — it stays as-is, except it needs one new button: **"Candidate Portal"**, linking to the candidate portal's login page.
 
-An **NDA access gate is required** after secure account setup and before full candidate portal access. The signature method (typed-name provider or external e-signature provider) must be confirmed before the production signing implementation.
+An **NDA access gate is required** after secure account setup and before full candidate portal access. Phase 3 implements a typed-legal-name provider behind the `NdaSigningProvider` interface, with consent, timestamp, IP/user-agent evidence, immutable template and PDF hashes, private PDF storage, and candidate email confirmation. Client/legal approval of this signing method remains a production-release requirement; an external e-signature adapter can replace it without changing the workflow state machine.
 
 ---
 
@@ -189,8 +189,18 @@ Recruiter/admin accounts, role assignment (see open question below).
 
 ## 8. Non-goals (keep the product simple — these were deliberately cut)
 
-- NDA template/signature tracking and portal gating are required; production signature evidence depends on the approved signing provider
+- NDA template/signature tracking and portal gating are required; the typed-name provider is implemented, but production use still requires client/legal approval of the signature method and agreement text
 - No separate Interviews page or Assessments page as distinct data models
 - No comment/chat thread on individual applications — plain saved text only
 - No offer letter, payroll, or timesheet functionality (that's radxsys.com's job)
 - No automatic public candidate account creation; public enquiries require admin approval and a secure invitation
+
+## Phase 4 operational requirements
+
+- Recruiter assignments must be historical and auditable; `candidates.recruiter_id` is only the current assignment pointer.
+- Only one active recruiter assignment may exist per candidate.
+- Admins manage assignment and recruiter capacity. Recruiters access only their current assigned candidates.
+- Candidate journey dates and notes must come from `candidate_journey_events`, not synthetic dates.
+- Candidate marketing has an explicit lifecycle: `not_ready`, `ready`, `live`, `paused`, `completed`.
+- Marketing launch requires an active candidate account/NDA, active recruiter assignment, resume on file, and candidate contact details.
+- Recruiter contact details shown to candidates must come from staff profile data.

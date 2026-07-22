@@ -9,14 +9,19 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const userRoles = ["candidate", "recruiter", "admin"] as const;
 export type UserRole = (typeof userRoles)[number];
 
 export const accountStates = ["pending_setup", "nda_pending", "active", "suspended"] as const;
 export type AccountState = (typeof accountStates)[number];
+
+export const marketingStatuses = ["not_ready", "ready", "live", "paused", "completed"] as const;
+export type MarketingStatus = (typeof marketingStatuses)[number];
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -27,6 +32,20 @@ export const users = pgTable("users", {
   accountState: text("account_state", { enum: [...accountStates] }).notNull().default("active"),
   sessionVersion: integer("session_version").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const staffProfiles = pgTable("staff_profiles", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  fullName: text("full_name").notNull(),
+  title: text("title").notNull().default("Talent Marketing Specialist"),
+  phone: text("phone"),
+  timezone: text("timezone").notNull().default("America/Chicago"),
+  maxActiveCandidates: integer("max_active_candidates").notNull().default(20),
+  isAvailable: boolean("is_available").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const candidates = pgTable(
@@ -41,6 +60,14 @@ export const candidates = pgTable(
     optType: text("opt_type", { enum: ["OPT", "STEM_OPT"] }).notNull(),
     journeyStage: smallint("journey_stage").notNull().default(0),
     recruiterId: uuid("recruiter_id").references(() => users.id),
+    marketingStatus: text("marketing_status", { enum: [...marketingStatuses] })
+      .notNull()
+      .default("not_ready"),
+    marketingReadyAt: timestamp("marketing_ready_at", { withTimezone: true }),
+    marketingLiveAt: timestamp("marketing_live_at", { withTimezone: true }),
+    marketingPausedAt: timestamp("marketing_paused_at", { withTimezone: true }),
+    marketingCompletedAt: timestamp("marketing_completed_at", { withTimezone: true }),
+    marketingNotes: text("marketing_notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -326,6 +353,9 @@ export const ndaTemplates = pgTable(
   (table) => [index("idx_nda_templates_active").on(table.isActive, table.effectiveFrom)],
 );
 
+export const ndaAgreementStatuses = ["pending", "signing", "signed", "superseded", "revoked"] as const;
+export type NdaAgreementStatus = (typeof ndaAgreementStatuses)[number];
+
 export const candidateNdaAgreements = pgTable(
   "candidate_nda_agreements",
   {
@@ -336,13 +366,16 @@ export const candidateNdaAgreements = pgTable(
     templateId: uuid("template_id")
       .notNull()
       .references(() => ndaTemplates.id),
-    status: text("status", { enum: ["pending", "signed", "revoked"] }).notNull().default("pending"),
+    status: text("status", { enum: [...ndaAgreementStatuses] }).notNull().default("pending"),
     presentedAt: timestamp("presented_at", { withTimezone: true }).notNull().defaultNow(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     signerName: text("signer_name"),
     signerIp: text("signer_ip"),
     signerUserAgent: text("signer_user_agent"),
     consentText: text("consent_text"),
+    signingProvider: text("signing_provider"),
+    providerEnvelopeId: text("provider_envelope_id"),
+    signingStartedAt: timestamp("signing_started_at", { withTimezone: true }),
     signedDocumentPath: text("signed_document_path"),
     signedDocumentHash: text("signed_document_hash"),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
@@ -371,10 +404,15 @@ export const candidateRecruiterAssignments = pgTable(
     reason: text("reason"),
     assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    endedBy: uuid("ended_by").references(() => users.id),
+    endReason: text("end_reason"),
   },
   (table) => [
     index("idx_candidate_recruiter_assignments_candidate").on(table.candidateId, table.assignedAt),
     index("idx_candidate_recruiter_assignments_recruiter").on(table.recruiterId, table.status),
+    uniqueIndex("candidate_recruiter_assignments_one_active")
+      .on(table.candidateId)
+      .where(sql`${table.status} = 'active'`),
   ],
 );
 
@@ -386,10 +424,17 @@ export const candidateJourneyEvents = pgTable(
       .notNull()
       .references(() => candidates.id, { onDelete: "cascade" }),
     stage: smallint("stage").notNull(),
+    previousStage: smallint("previous_stage"),
     eventType: text("event_type", { enum: ["stage_reached", "stage_reopened", "note"] })
       .notNull()
       .default("stage_reached"),
+    source: text("source", {
+      enum: ["manual", "assignment", "marketing", "application", "system"],
+    })
+      .notNull()
+      .default("manual"),
     note: text("note"),
+    candidateVisible: boolean("candidate_visible").notNull().default(true),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid("created_by").references(() => users.id),
   },
@@ -409,6 +454,7 @@ export const emailDeliveryTypes = [
   "lead_rejection",
   "candidate_invite",
   "candidate_invite_resend",
+  "nda_signed_candidate",
 ] as const;
 
 export const emailDeliveryStatuses = ["queued", "sent", "logged", "failed"] as const;
@@ -426,6 +472,7 @@ export const emailDeliveryLogs = pgTable(
     relatedLeadId: uuid("related_lead_id").references(() => leads.id, { onDelete: "set null" }),
     relatedCandidateId: uuid("related_candidate_id").references(() => candidates.id, { onDelete: "set null" }),
     relatedInviteId: uuid("related_invite_id").references(() => candidateInvites.id, { onDelete: "set null" }),
+    relatedNdaAgreementId: uuid("related_nda_agreement_id").references(() => candidateNdaAgreements.id, { onDelete: "set null" }),
     attemptCount: integer("attempt_count").notNull().default(1),
     lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }).notNull().defaultNow(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
@@ -436,6 +483,7 @@ export const emailDeliveryLogs = pgTable(
     index("idx_email_delivery_logs_lead").on(table.relatedLeadId, table.createdAt),
     index("idx_email_delivery_logs_candidate").on(table.relatedCandidateId, table.createdAt),
     index("idx_email_delivery_logs_invite").on(table.relatedInviteId, table.createdAt),
+    index("idx_email_delivery_logs_nda").on(table.relatedNdaAgreementId, table.createdAt),
   ],
 );
 
@@ -463,6 +511,9 @@ export const auditLog = pgTable("audit_log", {
 });
 
 export type User = typeof users.$inferSelect;
+export type StaffProfile = typeof staffProfiles.$inferSelect;
 export type Candidate = typeof candidates.$inferSelect;
+export type CandidateRecruiterAssignment = typeof candidateRecruiterAssignments.$inferSelect;
+export type CandidateJourneyEvent = typeof candidateJourneyEvents.$inferSelect;
 export type Application = typeof applications.$inferSelect;
 export type ApplicationEvent = typeof applicationEvents.$inferSelect;
