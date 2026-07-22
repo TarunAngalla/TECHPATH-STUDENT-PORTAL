@@ -76,6 +76,17 @@ async function main() {
     await assertColumn(sql, "candidate_journey_events", "previous_stage");
     await assertColumn(sql, "candidate_journey_events", "source");
     await assertColumn(sql, "candidate_journey_events", "candidate_visible");
+    await assertColumn(sql, "applications", "submitted_by");
+    await assertColumn(sql, "applications", "candidate_visible_notes");
+    await assertColumn(sql, "applications", "internal_notes");
+    await assertColumn(sql, "applications", "next_action_at");
+    await assertColumn(sql, "application_events", "activity_type");
+    await assertColumn(sql, "application_events", "event_key");
+    await assertColumn(sql, "application_events", "scheduled_end_at");
+    await assertColumn(sql, "application_events", "timezone");
+    await assertColumn(sql, "application_events", "candidate_visible_notes");
+    await assertColumn(sql, "application_events", "candidate_visible");
+    await assertColumn(sql, "announcements", "source_key");
 
     for (const table of [
       "candidate_invites",
@@ -189,6 +200,48 @@ async function main() {
     if (!duplicateActiveAssignmentBlocked) {
       throw new Error("Multiple active recruiter assignments were not blocked");
     }
+
+
+    const [phase5Application] = await sql<{ id: string }[]>`
+      insert into applications(candidate_id, app_no, company_name, role_title, date_applied, status, submitted_by, priority)
+      values (${candidate.id}, 'APP-P5', 'Phase Five Company', 'Software Engineer', current_date, 'submitted', ${recruiter.id}, 'high')
+      returning id
+    `;
+    await sql`
+      insert into application_events(
+        application_id, candidate_id, event_type, activity_type, event_key, title, status,
+        scheduled_at, scheduled_end_at, timezone, round_number, candidate_visible, created_by
+      ) values (
+        ${phase5Application.id}, ${candidate.id}, 'interview', 'technical_interview', 'phase5-smoke-event',
+        'Technical interview', 'scheduled', now() + interval '1 day', now() + interval '2 days',
+        'America/Chicago', 1, true, ${recruiter.id}
+      )
+    `;
+
+    let duplicateEventBlocked = false;
+    try {
+      await sql`
+        insert into application_events(
+          application_id, candidate_id, event_type, activity_type, event_key, title, status, candidate_visible, created_by
+        ) values (
+          ${phase5Application.id}, ${candidate.id}, 'interview', 'technical_interview', 'phase5-smoke-event',
+          'Duplicate interview', 'scheduled', true, ${recruiter.id}
+        )
+      `;
+    } catch {
+      duplicateEventBlocked = true;
+    }
+    if (!duplicateEventBlocked) throw new Error("Duplicate application event key was not blocked");
+
+    await sql`
+      insert into application_events(
+        application_id, candidate_id, event_type, activity_type, event_key, title, status,
+        completed_at, result, score, candidate_visible, created_by
+      ) values (
+        ${phase5Application.id}, ${candidate.id}, 'assessment', 'coding_test', 'phase5-assessment',
+        'Coding assessment', 'result_pending', now(), 'Awaiting final score', '82', true, ${recruiter.id}
+      )
+    `;
 
     console.log(`Migration smoke passed: ${migrationFiles.join(", ")}`);
   } finally {

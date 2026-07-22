@@ -13,17 +13,28 @@ export function formatDate(date: Date | string | null, options?: Intl.DateTimeFo
   return d.toLocaleDateString("en-US", options ?? { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function formatDateTime(date: Date | string | null) {
+export function formatDateTime(date: Date | string | null, timeZone?: string) {
   if (!date) return "";
   const d = typeof date === "string" ? new Date(date) : date;
   if (isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  try {
+    return d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      ...(timeZone ? { timeZone } : {}),
+    });
+  } catch {
+    return d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
 }
 
 export function dayLabel(days: number | null): string {

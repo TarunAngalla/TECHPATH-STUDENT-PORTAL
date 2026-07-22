@@ -8,16 +8,13 @@ export function downloadInterviewICS(app: {
   const start = new Date(app.upcomingWhen);
   if (isNaN(start.getTime())) return;
 
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const fmt = (d: Date) =>
-    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
   const end = new Date(start.getTime() + 60 * 60 * 1000);
   const ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "BEGIN:VEVENT",
-    `DTSTART:${fmt(start)}`,
-    `DTEND:${fmt(end)}`,
+    `DTSTART:${formatUtcCalendarDate(start)}`,
+    `DTEND:${formatUtcCalendarDate(end)}`,
     `SUMMARY:${app.companyName} — ${app.upcomingLabel}`,
     `DESCRIPTION:${app.upcomingPrep ?? ""}`,
     "END:VEVENT",
@@ -56,4 +53,73 @@ export function getGoogleCalendarLink(app: {
   const details = encodeURIComponent(app.upcomingPrep ?? "");
   
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`;
+}
+
+export type CalendarActivity = {
+  companyName: string;
+  title: string;
+  scheduledAt: Date | string | null;
+  scheduledEndAt?: Date | string | null;
+  description?: string | null;
+  location?: string | null;
+  meetingLink?: string | null;
+};
+
+function activityDates(activity: CalendarActivity) {
+  if (!activity.scheduledAt) return null;
+  const start = new Date(activity.scheduledAt);
+  if (Number.isNaN(start.getTime())) return null;
+  const suppliedEnd = activity.scheduledEndAt ? new Date(activity.scheduledEndAt) : null;
+  const end = suppliedEnd && !Number.isNaN(suppliedEnd.getTime()) && suppliedEnd > start
+    ? suppliedEnd
+    : new Date(start.getTime() + 60 * 60 * 1000);
+  return { start, end };
+}
+
+function formatUtcCalendarDate(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}00Z`;
+}
+
+export function downloadActivityICS(activity: CalendarActivity) {
+  const dates = activityDates(activity);
+  if (!dates) return;
+  const summary = `${activity.companyName} — ${activity.title}`;
+  const description = [activity.description, activity.meetingLink].filter(Boolean).join("\\n");
+  const escape = (value: string) => value.replaceAll("\\", "\\\\").replaceAll("\n", "\\n").replaceAll(",", "\\,").replaceAll(";", "\\;");
+  const content = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//TechPath//Candidate Activity//EN",
+    "BEGIN:VEVENT",
+    `DTSTART:${formatUtcCalendarDate(dates.start)}`,
+    `DTEND:${formatUtcCalendarDate(dates.end)}`,
+    `SUMMARY:${escape(summary)}`,
+    `DESCRIPTION:${escape(description)}`,
+    activity.location ? `LOCATION:${escape(activity.location)}` : null,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].filter(Boolean).join("\r\n");
+  const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${activity.companyName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${activity.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.ics`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function getActivityGoogleCalendarLink(activity: CalendarActivity) {
+  const dates = activityDates(activity);
+  if (!dates) return "";
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: `${activity.companyName} — ${activity.title}`,
+    dates: `${formatUtcCalendarDate(dates.start)}/${formatUtcCalendarDate(dates.end)}`,
+    details: [activity.description, activity.meetingLink].filter(Boolean).join("\n"),
+    location: activity.location ?? "",
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }

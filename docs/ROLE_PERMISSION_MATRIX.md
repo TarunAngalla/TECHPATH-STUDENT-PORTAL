@@ -37,3 +37,15 @@ Every permission must be enforced in server-side code. Navigation visibility is 
 | View candidate-visible journey history | Yes | Assigned candidates | Own history |
 | Update marketing lifecycle | All candidates | Assigned candidates | No |
 | View marketing status | Yes | Assigned candidates | Own status |
+
+## Phase 5 application activity
+
+| Capability | Admin | Recruiter | Candidate |
+|---|---:|---:|---:|
+| View all applications | Yes | No | No |
+| View assigned-candidate applications | Yes | Yes | Own only |
+| Create/update application | Yes | Assigned only | No |
+| Schedule/update interview or assessment | Yes | Assigned only | No |
+| View internal application/event notes | Yes | Assigned only | No |
+| View candidate-visible interview/assessment details | Yes | Assigned only | Own only |
+| Update results or scores | Yes | Assigned only | No |

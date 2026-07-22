@@ -1,8 +1,9 @@
 import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
-import { INTERVIEW_STATUSES } from "@/lib/constants/status-meta";
+import { ASSESSMENT_COMPLETED_STATUSES, INTERVIEW_COMPLETED_STATUSES, UPCOMING_EVENT_STATUSES, type ApplicationEventStatus } from "@/lib/constants/application-activity";
 import type { StaffScope } from "@/lib/auth/staff-scope";
 import { db } from "@/lib/db";
 import {
+  applicationEvents,
   applications,
   auditLog,
   candidates,
@@ -93,30 +94,28 @@ export async function getDashboardStats(scope?: StaffScope) {
 
   const scopedIds = scopedCandidates.map((c) => c.id);
 
-  const allApps =
-    scopedIds.length === 0
-      ? []
-      : await db.select().from(applications).where(inArray(applications.candidateId, scopedIds));
+  const allApps = scopedIds.length === 0
+    ? []
+    : await db.select().from(applications).where(inArray(applications.candidateId, scopedIds));
+  const allActivities = scopedIds.length === 0
+    ? []
+    : await db.select().from(applicationEvents).where(inArray(applicationEvents.candidateId, scopedIds));
 
-  const interviewsThisWeek = allApps.filter((a) => {
-    if (!a.upcomingWhen) return false;
-    const when = new Date(a.upcomingWhen);
-    return (
-      when >= weekStart &&
-      when <= weekEnd &&
-      INTERVIEW_STATUSES.includes(a.status as (typeof INTERVIEW_STATUSES)[number])
-    );
+  const interviewsThisWeek = allActivities.filter((event) => {
+    if (event.eventType !== "interview" || !event.scheduledAt) return false;
+    const when = new Date(event.scheduledAt);
+    return when >= weekStart && when < weekEnd && UPCOMING_EVENT_STATUSES.includes(event.status as ApplicationEventStatus);
   }).length;
 
-  const interviewsInProgress = allApps.filter((a) =>
-    INTERVIEW_STATUSES.includes(a.status as (typeof INTERVIEW_STATUSES)[number]),
+  const interviewsInProgress = allActivities.filter(
+    (event) => event.eventType === "interview" && ["scheduled", "confirmed", "rescheduled", "feedback_pending"].includes(event.status),
   ).length;
 
   const marketingLive = scopedCandidates.filter((c) => c.marketingStatus === "live").length;
   const portalAccessGranted = Number(portalCandidatesRow?.count ?? 0);
   const activeCandidates = Number(activeCandidatesRow?.count ?? 0);
   const ndasPending = Number(ndaPendingRow?.count ?? 0);
-  const placedCount = allApps.filter((a) => a.status === "offer").length;
+  const placedCount = allApps.filter((a) => a.status === "offer" || a.status === "hired").length;
 
   const unreadMessages = scope ? await getUnreadStaffMessageCount(scope) : 0;
 
@@ -206,10 +205,13 @@ export async function getDashboardStats(scope?: StaffScope) {
   const marketingProgress = await Promise.all(
     scopedCandidates.slice(0, 6).map(async (c) => {
       const apps = allApps.filter((a) => a.candidateId === c.id);
-      const interviews = apps.filter((a) =>
-        INTERVIEW_STATUSES.includes(a.status as (typeof INTERVIEW_STATUSES)[number]),
+      const candidateActivities = allActivities.filter((event) => event.candidateId === c.id);
+      const interviews = candidateActivities.filter(
+        (event) => event.eventType === "interview" && INTERVIEW_COMPLETED_STATUSES.includes(event.status as ApplicationEventStatus),
       ).length;
-      const assessments = apps.filter((a) => a.status === "assessment").length;
+      const assessments = candidateActivities.filter(
+        (event) => event.eventType === "assessment" && ASSESSMENT_COMPLETED_STATUSES.includes(event.status as ApplicationEventStatus),
+      ).length;
       const maxBar = Math.max(apps.length, 1);
       return {
         candidateId: c.id,
@@ -256,8 +258,8 @@ export async function getDashboardStats(scope?: StaffScope) {
       .from(candidates)
       .where(and(gte(candidates.createdAt, start), lt(candidates.createdAt, end), scopeFilter));
 
-    const appsInWeek = allApps.filter((a) => {
-      const d = new Date(a.createdAt);
+    const activitiesInWeek = allActivities.filter((activity) => {
+      const d = new Date(activity.scheduledAt ?? activity.createdAt);
       return d >= start && d < end;
     });
 
@@ -267,9 +269,7 @@ export async function getDashboardStats(scope?: StaffScope) {
       Consultations: leadRows.filter((l) => l.source === "consultation_booked").length,
       Portal: candidatesCreated.length,
       Marketing: candidatesCreated.filter((c) => c.marketingStatus === "live").length,
-      Interviews: appsInWeek.filter((a) =>
-        INTERVIEW_STATUSES.includes(a.status as (typeof INTERVIEW_STATUSES)[number]),
-      ).length,
+      Interviews: activitiesInWeek.filter((activity) => activity.eventType === "interview").length,
     });
   }
 

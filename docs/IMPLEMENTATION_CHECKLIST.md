@@ -88,3 +88,15 @@
 - [x] Back candidate progress with actual journey events.
 - [x] Add migration/domain smoke assertions.
 - [ ] Execute live Phase 4 UAT against a configured development database.
+
+## Phase 5 — Applications, interviews, and assessments
+
+- [x] Add application operational fields and event idempotency
+- [x] Add interview and assessment activity management
+- [x] Add candidate-safe Interview Details and Assessments pages
+- [x] Add admin/recruiter application workbench
+- [x] Replace approximate dashboard counts with event-backed metrics
+- [x] Preserve legacy upcoming fields through transactional synchronization
+- [x] Add deduplicated candidate portal announcements
+- [x] Add Phase 5 migration/domain smoke coverage
+- [ ] Complete environment-backed authorization and workflow UAT

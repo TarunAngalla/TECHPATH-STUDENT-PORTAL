@@ -212,3 +212,8 @@ CREATE TABLE IF NOT EXISTS staff_profiles (
 -- previous_stage SMALLINT
 -- source TEXT NOT NULL DEFAULT 'manual'
 -- candidate_visible BOOLEAN NOT NULL DEFAULT true
+
+-- Phase 5 additive application activity model (canonical changes are in drizzle/0006_application_interview_assessment.sql)
+-- Applications now carry source/location/priority/next-action fields and separate candidate-visible vs internal notes.
+-- Application events now preserve interview and assessment type, round, timezone, schedule, result, score,
+-- candidate visibility, idempotency key, and private internal notes. Announcements use source_key for deduplicated activity updates.

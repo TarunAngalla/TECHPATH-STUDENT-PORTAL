@@ -111,7 +111,7 @@ function ApplicationCard({ app, allowComments }: { app: Application; allowCommen
       </div>
       <ApplicationCommentField
         id={`comment-mobile-${app.id}`}
-        value={app.comment}
+        value={app.candidateVisibleNotes ?? app.comment}
         onSave={(comment) => saveApplicationComment(app.id, comment)}
         readOnly={!allowComments}
       />
@@ -254,7 +254,7 @@ export function CandidateApplicationsTable({ applications, allowComments = false
                       <td className="px-5 py-4 min-w-[220px]">
                         <ApplicationCommentField
                           id={`comment-${app.id}`}
-                          value={app.comment}
+                          value={app.candidateVisibleNotes ?? app.comment}
                           onSave={(comment) => saveApplicationComment(app.id, comment)}
                           readOnly={!allowComments}
                         />

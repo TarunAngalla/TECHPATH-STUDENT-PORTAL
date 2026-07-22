@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  BriefcaseBusiness,
   GraduationCap,
   Inbox,
   LayoutDashboard,
@@ -17,6 +18,7 @@ export type AdminNavKey =
   | "dashboard"
   | "leads"
   | "candidates"
+  | "applications"
   | "assignments"
   | "nda"
   | "trainings"
@@ -47,6 +49,7 @@ export const ADMIN_NAV_SECTIONS: {
     items: [
       { key: "leads", label: "Leads Inbox", icon: Inbox, href: "/admin/leads", badgeKey: "newLeads" },
       { key: "candidates", label: "Candidates", icon: Users, href: "/admin/candidates" },
+      { key: "applications", label: "Applications", icon: BriefcaseBusiness, href: "/admin/applications" },
       { key: "assignments", label: "Recruiter Assignments", icon: UsersRound, href: "/admin/assignments" },
       { key: "nda", label: "NDA Signatures", icon: FileSignature, href: "/admin/nda" },
       { key: "messages", label: "Messages", icon: MessageCircle, href: "/admin/messages" },
@@ -76,6 +79,7 @@ export const ADMIN_PAGE_TITLES: Record<AdminNavKey, string> = {
   dashboard: "Dashboard",
   leads: "Leads Inbox",
   candidates: "Candidates",
+  applications: "Applications",
   assignments: "Recruiter Assignments",
   nda: "NDA Signatures",
   trainings: "Trainings Library",
