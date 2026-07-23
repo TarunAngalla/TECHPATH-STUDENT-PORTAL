@@ -3,7 +3,6 @@
 import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
 import Image from "next/image";
 import { GraduationCap, FileSignature, Megaphone, MessageSquare, Users, Rocket } from "lucide-react";
-import heroPath from "../../../public/images/hero_path_dark.png";
 
 const ANNOUNCEMENTS = [
   { icon: GraduationCap, label: "01", title: "Training", desc: "Industry-aligned programs", color: "#60a5fa" },
@@ -55,7 +54,7 @@ export function AuthHeroGraphic() {
       >
         <div className="absolute inset-0">
           <Image
-            src={heroPath}
+            src="/images/hero_path_dark.png"
             alt="The Tech Path — journey from training to placement"
             fill
             sizes="55vw"
