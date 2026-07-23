@@ -24,11 +24,10 @@ Use one canonical migration path: `npm run db:migrate`. Do not manually replay i
 | Surface | URL |
 |---|---|
 | Request access | http://localhost:3000/request-access |
-| Candidate login | http://localhost:3000/login |
+| Sign in (all roles) | http://localhost:3000/login |
 | Secure account setup | http://localhost:3000/setup-account?token=... |
 | NDA review and signing | http://localhost:3000/nda |
 | Candidate portal | http://localhost:3000/dashboard |
-| Admin login | http://localhost:3000/admin/login |
 | Admin console | http://localhost:3000/admin/dashboard |
 | NDA administration | http://localhost:3000/admin/nda |
 
@@ -152,3 +151,33 @@ npm run lint
 npm run build
 npm run db:smoke
 ```
+
+## Phase 7: production readiness
+
+Phase 7 adds the release quality gate, automated tests, health endpoints, structured logging, secure CSV reporting, and production runbooks.
+
+```bash
+npm run quality:gate
+npm run test:unit
+npm run phase07:smoke
+npm run validate
+npm run test:e2e
+```
+
+Health checks:
+
+- `GET /api/health` — process liveness; safe for public uptime monitoring.
+- `GET /api/health/ready` — database readiness and provider-configuration indicators; no secrets are returned.
+
+Admin report exports are available from `/admin/reports` and are generated through the admin-only `/api/admin/reports/export` route. Exported spreadsheet cells are protected against formula injection.
+
+The local seed now requires `SEED_ADMIN_EMAIL` and a strong `SEED_ADMIN_PASSWORD`; the password is never printed. Do not configure seed credentials in production.
+
+Production documents:
+
+- `docs/PRODUCTION_CHECKLIST.md`
+- `docs/DATABASE_MIGRATION_GUIDE.md`
+- `docs/BACKUP_AND_RESTORE.md`
+- `docs/UAT_CHECKLIST.md`
+- `docs/INCIDENT_RESPONSE.md`
+- `docs/RELEASE_NOTES_PHASE_07.md`

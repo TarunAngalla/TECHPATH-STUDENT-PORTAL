@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   ChevronLeft,
   Download,
@@ -180,6 +180,7 @@ export function CandidateDetailPage({
   const [recruiterId, setRecruiterId] = useState(candidate.recruiterId ?? "");
   const [marketingStatus, setMarketingStatus] = useState<MarketingStatus>(candidate.marketingStatus);
   const [reply, setReply] = useState("");
+  const messageListRef = useRef<HTMLDivElement>(null);
   const [inviteFeedback, setInviteFeedback] = useState<{
     kind: "success" | "error";
     message: string;
@@ -193,6 +194,13 @@ export function CandidateDetailPage({
     | { type: "marketing"; nextStatus: MarketingStatus; requireReason: boolean }
     | null
   >(null);
+
+  useEffect(() => {
+    if (tab !== "Messages") return;
+    const list = messageListRef.current;
+    if (!list) return;
+    list.scrollTo({ top: list.scrollHeight, behavior: "auto" });
+  }, [tab, messages.length]);
 
   const handleJourneyChange = (stage: number) => {
     if (stage === journeyStage) return;
@@ -509,8 +517,11 @@ export function CandidateDetailPage({
       )}
 
       {tab === "Messages" && (
-        <Card variant="glass" className="overflow-hidden flex flex-col h-[420px]">
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-surface/40">
+        <Card variant="glass" className="overflow-hidden flex flex-col h-[420px] max-h-[min(420px,60vh)]">
+          <div
+            ref={messageListRef}
+            className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-surface/40 min-h-0"
+          >
             {messages.length === 0 ? (
               <p className="text-xs text-center pt-8 text-text-muted">
                 No messages yet with {candidate.fullName}.
@@ -549,7 +560,7 @@ export function CandidateDetailPage({
               ))
             )}
           </div>
-          <div className="flex items-center gap-2 px-4 py-3 border-t border-border-subtle">
+          <div className="flex items-center gap-2 px-4 py-3 border-t border-border-subtle flex-shrink-0">
             <label htmlFor="reply-input" className="sr-only">
               Reply to {candidate.fullName}
             </label>

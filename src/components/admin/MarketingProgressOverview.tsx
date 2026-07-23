@@ -69,9 +69,9 @@ export function MarketingProgressOverview({ rows, scopedToRecruiter }: { rows: M
         {rows.length === 0 ? (
           <p className="p-10 text-center text-sm text-text-muted">No candidates are available in this marketing view.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[min(36rem,65vh)] overflow-y-auto">
             <table className="w-full min-w-[980px] text-left" aria-label="Candidate marketing progress">
-              <thead><tr className="border-b border-border-subtle bg-surface/60">
+              <thead className="sticky top-0 z-[1]"><tr className="border-b border-border-subtle bg-surface/95 backdrop-blur-sm">
                 {[
                   "Candidate",
                   "Marketing status",

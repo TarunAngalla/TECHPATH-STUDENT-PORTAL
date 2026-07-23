@@ -1,7 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-
+/** Admin layout always uses the authenticated shell; login lives at `/login`. */
 export function AdminLayoutGate({
   children,
   shell,
@@ -9,9 +8,5 @@ export function AdminLayoutGate({
   children: React.ReactNode;
   shell: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  if (pathname === "/admin/login" || pathname.startsWith("/admin/login/")) {
-    return children;
-  }
-  return shell;
+  return shell ?? children;
 }

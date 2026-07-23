@@ -209,3 +209,16 @@ If they want **cheapest possible** and accept limits: Vercel Hobby + Neon Free +
 - `docs/PHASE_03_TARGET_VERIFICATION.md` — Phase 3 verification / blockers
 - `vercel.json` — Vercel build defaults
 - `docker-compose.yml` — local Postgres
+
+---
+
+## 9. Phase 7 release gate
+
+Before staging or production, run `npm run validate`, `npm run db:smoke`, and `npm run test:e2e`. GitHub Actions repeats these checks with PostgreSQL 16 and blocks the release when they fail.
+
+Configure uptime checks for:
+
+- `/api/health` every minute;
+- `/api/health/ready` every five minutes with alerting on repeated `503` responses.
+
+Use the runbooks in `docs/PRODUCTION_CHECKLIST.md`, `docs/BACKUP_AND_RESTORE.md`, `docs/UAT_CHECKLIST.md`, and `docs/INCIDENT_RESPONSE.md`. A successful code build is not production approval: client NDA content, Resend, private Supabase storage, managed database backups, domains, monitoring, and client UAT remain mandatory external gates.

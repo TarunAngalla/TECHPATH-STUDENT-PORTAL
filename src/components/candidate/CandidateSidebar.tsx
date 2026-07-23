@@ -34,7 +34,7 @@ export function CandidateSidebar({
       )}
       <aside
         className={cn(
-          "glass-dark fixed lg:sticky z-30 top-0 left-0 h-full lg:h-screen flex flex-col transition-all duration-300 shadow-elevated",
+          "glass-dark fixed z-30 top-0 left-0 h-dvh flex flex-col transition-all duration-300 shadow-elevated",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           collapsed ? "w-64 lg:w-20" : "w-64",
         )}

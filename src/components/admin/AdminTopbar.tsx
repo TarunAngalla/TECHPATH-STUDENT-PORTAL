@@ -1,11 +1,20 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Bell, Search, PanelLeft, PanelLeftClose } from "lucide-react";
-import { Avatar } from "@/components/ui/Avatar";
-import { Input } from "@/components/ui/Input";
-import { Card } from "@/components/ui/Card";
+import { Bell, LogOut, MessageCircle, PanelLeft, PanelLeftClose, Search, Settings } from "lucide-react";
+import { adminLogoutAction } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils/cn";
+import {
+  Avatar,
+  Card,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+} from "@/components/ui";
 
 export function AdminTopbar({
   title,
@@ -23,6 +32,7 @@ export function AdminTopbar({
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
 }) {
+  const router = useRouter();
   const [notifOpen, setNotifOpen] = useState(false);
 
   return (
@@ -94,21 +104,61 @@ export function AdminTopbar({
           )}
         </button>
         {notifOpen && (
-          <Card
-            variant="glass"
-            className="absolute right-10 top-8 w-72 overflow-hidden z-20 shadow-elevated !rounded-xl"
-          >
-            <div className="px-4 py-3 text-xs font-medium border-b border-border-subtle text-text-primary">
-              Candidate messages
-            </div>
-            <p className="px-4 py-3 text-xs text-text-muted">
-              {unreadMessages > 0
-                ? `${unreadMessages} unread message${unreadMessages === 1 ? "" : "s"} from candidates.`
-                : "No unread candidate messages."}
-            </p>
-          </Card>
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-10"
+              aria-label="Close notifications"
+              onClick={() => setNotifOpen(false)}
+            />
+            <Card
+              variant="glass"
+              className="absolute right-10 top-8 w-72 overflow-hidden z-20 shadow-elevated !rounded-xl"
+            >
+              <div className="px-4 py-3 text-xs font-medium border-b border-border-subtle text-text-primary">
+                Candidate messages
+              </div>
+              <p className="px-4 py-3 text-xs text-text-muted">
+                {unreadMessages > 0
+                  ? `${unreadMessages} unread message${unreadMessages === 1 ? "" : "s"} from candidates.`
+                  : "No unread candidate messages."}
+              </p>
+            </Card>
+          </>
         )}
-        <Avatar name={staffName} size="sm" className="ring-2 ring-brand-500/20" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              aria-label="Open profile menu"
+            >
+              <Avatar name={staffName} size="sm" className="ring-2 ring-brand-500/20" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[180px]">
+            <div className="px-3 py-2 text-xs text-text-muted truncate">{staffName}</div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => router.push("/admin/settings")}>
+              <Settings size={14} aria-hidden="true" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/admin/messages")}>
+              <MessageCircle size={14} aria-hidden="true" />
+              Messages{unreadMessages > 0 ? ` (${unreadMessages})` : ""}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <form action={adminLogoutAction}>
+              <button
+                type="submit"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-danger outline-none hover:bg-danger-soft transition-colors"
+              >
+                <LogOut size={14} aria-hidden="true" />
+                Logout
+              </button>
+            </form>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

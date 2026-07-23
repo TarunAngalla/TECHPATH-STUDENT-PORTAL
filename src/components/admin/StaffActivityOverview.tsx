@@ -134,10 +134,10 @@ export function StaffActivityOverview({
             <p className="mt-1 text-xs text-text-muted">Activity created from an application will appear here.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[min(36rem,65vh)] overflow-y-auto">
             <table className="w-full min-w-[1040px] text-left" aria-label={`${plural} work queue`}>
-              <thead>
-                <tr className="border-b border-border-subtle bg-surface/60">
+              <thead className="sticky top-0 z-[1]">
+                <tr className="border-b border-border-subtle bg-surface/95 backdrop-blur-sm">
                   {[
                     singular,
                     "Candidate",

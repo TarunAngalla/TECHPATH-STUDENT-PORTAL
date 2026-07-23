@@ -3,24 +3,25 @@ import { getIronSession } from "iron-session";
 import { getSessionOptions, type SessionData } from "@/lib/auth/session-config";
 import { getPortalFromHost } from "@/lib/portal";
 
-const CANDIDATE_PUBLIC = ["/login", "/request-access", "/setup-account"];
-const ADMIN_PUBLIC = ["/admin/login"];
+const SHARED_PUBLIC = ["/login"];
+const CANDIDATE_PUBLIC = [...SHARED_PUBLIC, "/request-access", "/setup-account"];
+const ADMIN_PUBLIC = [...SHARED_PUBLIC];
+
 function envFlag(name: string, defaultValue = false) {
   const value = process.env[name];
   return value === undefined ? defaultValue : value === "1" || value.toLowerCase() === "true";
 }
+
 function isPublicPath(pathname: string, portal: "candidate" | "admin") {
   const paths = portal === "admin" ? ADMIN_PUBLIC : CANDIDATE_PUBLIC;
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
+
 function rewriteForPortal(request: NextRequest, portal: "candidate" | "admin") {
   const { pathname } = request.nextUrl;
   if (portal === "admin") {
-    if (pathname === "/login") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/login";
-      return NextResponse.redirect(url);
-    }
+    // Single shared login page — never rewrite /login onto an admin-only route.
+    if (pathname === "/login") return null;
     if (pathname.startsWith("/admin")) return null;
     const url = request.nextUrl.clone();
     url.pathname = pathname === "/" ? "/admin/dashboard" : `/admin${pathname}`;
@@ -34,6 +35,7 @@ function rewriteForPortal(request: NextRequest, portal: "candidate" | "admin") {
   }
   return null;
 }
+
 function redirectWithDeletedSession(request: NextRequest, pathname: string) {
   const url = request.nextUrl.clone();
   url.pathname = pathname;
@@ -45,43 +47,74 @@ function redirectWithDeletedSession(request: NextRequest, pathname: string) {
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
+
+  // Legacy admin login URL — always use the shared /login page.
+  if (pathname === "/admin/login" || pathname.startsWith("/admin/login/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
   const portal = getPortalFromHost(host, pathname);
   const rewrite = rewriteForPortal(request, portal);
   if (rewrite?.headers.get("location")) return rewrite;
   const response = rewrite ?? NextResponse.next();
   const session = await getIronSession<SessionData>(request, response, getSessionOptions());
   const isLoggedIn = session.isLoggedIn === true;
+
   if (!isLoggedIn && !isPublicPath(pathname, portal)) {
     const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = portal === "admin" ? "/admin/login" : "/login";
+    loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
   }
   if (!isLoggedIn) return response;
-  if (portal === "candidate" && session.role !== "candidate") return redirectWithDeletedSession(request, "/login");
-  if (portal === "admin" && session.role !== "recruiter" && session.role !== "admin") {
-    return redirectWithDeletedSession(request, "/admin/login");
+
+  if (portal === "candidate" && session.role !== "candidate") {
+    return redirectWithDeletedSession(request, "/login");
   }
+  if (portal === "admin" && session.role !== "recruiter" && session.role !== "admin") {
+    return redirectWithDeletedSession(request, "/login");
+  }
+
   if (portal === "candidate" && session.role === "candidate") {
     const ndaGateEnabled = envFlag("ENABLE_NDA_GATE", false);
     const needsAccountSetup = session.firstLogin || session.accountState === "pending_setup";
     const needsNda = ndaGateEnabled && session.accountState === "nda_pending";
     const suspended = session.accountState === "suspended";
     if (suspended && pathname !== "/account-suspended") {
-      const url = request.nextUrl.clone(); url.pathname = "/account-suspended"; return NextResponse.redirect(url);
+      const url = request.nextUrl.clone();
+      url.pathname = "/account-suspended";
+      return NextResponse.redirect(url);
     }
     if (needsAccountSetup && !["/reset-password", "/setup-account"].includes(pathname)) {
-      const url = request.nextUrl.clone(); url.pathname = "/reset-password"; return NextResponse.redirect(url);
+      const url = request.nextUrl.clone();
+      url.pathname = "/reset-password";
+      return NextResponse.redirect(url);
     }
     if (!needsAccountSetup && needsNda && pathname !== "/nda") {
-      const url = request.nextUrl.clone(); url.pathname = "/nda"; return NextResponse.redirect(url);
+      const url = request.nextUrl.clone();
+      url.pathname = "/nda";
+      return NextResponse.redirect(url);
     }
-    if (!needsAccountSetup && !needsNda && !suspended && ["/login", "/request-access", "/setup-account", "/reset-password", "/nda", "/account-suspended"].includes(pathname)) {
-      const url = request.nextUrl.clone(); url.pathname = "/dashboard"; return NextResponse.redirect(url);
+    if (
+      !needsAccountSetup &&
+      !needsNda &&
+      !suspended &&
+      ["/login", "/request-access", "/setup-account", "/reset-password", "/nda", "/account-suspended"].includes(pathname)
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
     }
   }
-  if (portal === "admin" && pathname === "/admin/login") {
-    const url = request.nextUrl.clone(); url.pathname = "/admin/dashboard"; return NextResponse.redirect(url);
+
+  if (portal === "admin" && pathname === "/login") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/dashboard";
+    return NextResponse.redirect(url);
   }
+
   return response;
 }
+
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|api).*)"] };
