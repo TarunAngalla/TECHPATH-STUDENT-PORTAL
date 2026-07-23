@@ -103,10 +103,6 @@ export async function candidateLoginAction(
   return { error: "Invalid user role." };
 }
 
-export async function adminLoginAction(prev: AuthActionState, formData: FormData) {
-  return candidateLoginAction(prev, formData);
-}
-
 export async function forcedFirstLoginAction(
   _prev: AuthActionState,
   formData: FormData,

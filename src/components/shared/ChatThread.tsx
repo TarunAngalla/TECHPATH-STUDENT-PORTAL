@@ -32,7 +32,7 @@ export function ChatThread({
   /** Role of the person on the other side of the thread (staff view). */
   partnerRole?: string;
 }) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
@@ -40,7 +40,11 @@ export function ChatThread({
   }, [onMount]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
+    const list = listRef.current;
+    if (!list) return;
+    // Keep scroll inside the message pane — never scroll the document/window.
+    list.scrollTo({
+      top: list.scrollHeight,
       behavior: prefersReducedMotion ? "auto" : "smooth",
     });
   }, [messages.length, prefersReducedMotion]);
@@ -63,7 +67,7 @@ export function ChatThread({
   return (
     <section
       aria-label={`Conversation with ${recruiterName}`}
-      className="bg-white border border-border-strong/50 rounded-2xl overflow-hidden flex flex-col shadow-xs min-h-[55vh] max-h-[calc(100vh-14rem)] w-full"
+      className="bg-white border border-border-strong/50 rounded-2xl overflow-hidden flex flex-col shadow-xs h-full min-h-0 w-full"
     >
       <header className="flex items-center gap-3 px-5 py-4 border-b border-border-strong/45 flex-shrink-0 bg-white">
         <div
@@ -85,6 +89,7 @@ export function ChatThread({
       </header>
 
       <div
+        ref={listRef}
         className="flex-1 overflow-y-auto px-5 py-5 space-y-4 min-h-0 bg-surface/10"
         role="log"
         aria-live="polite"
@@ -131,7 +136,6 @@ export function ChatThread({
             );
           })
         )}
-        <div ref={bottomRef} />
       </div>
 
       <div className="flex-shrink-0 bg-white">

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { submitTrustedEnquiry } from "@/lib/services/public-enquiries";
+import { logger } from "@/lib/observability/logger";
+import { getOrCreateRequestId } from "@/lib/observability/request-id";
 
 const leadSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -17,6 +19,7 @@ const leadSchema = z.object({
  * Auth: Authorization: Bearer <LEAD_INTAKE_SECRET> or x-api-key.
  */
 export async function POST(request: Request) {
+  const requestId = getOrCreateRequestId(request.headers);
   const secret = process.env.LEAD_INTAKE_SECRET;
   if (!secret) {
     return NextResponse.json({ error: "Lead intake is not configured" }, { status: 503 });
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
       { status: result.created ? 201 : 200 },
     );
   } catch (error) {
-    console.error("[api/leads] intake failed", error);
+    logger.error("trusted_lead.intake_failed", error, { requestId });
     return NextResponse.json({ error: "Unable to process enquiry" }, { status: 500 });
   }
 }

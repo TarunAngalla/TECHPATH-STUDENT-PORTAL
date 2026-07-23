@@ -1,0 +1,94 @@
+name: TechPath Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: ci
+  DATABASE_URL: postgresql://techpath:techpath@localhost:5432/techpath
+  SESSION_SECRET: ci-only-session-secret-that-is-longer-than-thirty-two-characters
+  RATE_LIMIT_HASH_SECRET: ci-only-rate-limit-secret-that-is-longer-than-thirty-two-characters
+  LEAD_INTAKE_SECRET: ci-only-lead-intake-secret
+  ADMIN_EMAIL_DOMAIN: thetechpath.com
+  ADMIN_NOTIFICATION_EMAIL: admin@thetechpath.com
+  NEXT_PUBLIC_CANDIDATE_HOST: localhost:3000
+  NEXT_PUBLIC_CANDIDATE_PORTAL_URL: http://127.0.0.1:3000
+  NEXT_PUBLIC_ADMIN_HOST: localhost:3000
+  ENABLE_SECURE_INVITES: "true"
+  ENABLE_NDA_GATE: "false"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: techpath
+          POSTGRES_PASSWORD: techpath
+          POSTGRES_DB: techpath
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U techpath -d techpath"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: cp .env.example .env.local
+      - run: npm run quality:gate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit
+      - run: npm run nda:smoke
+      - run: npm run phase04:smoke
+      - run: npm run phase05:smoke
+      - run: npm run phase06:smoke
+      - run: npm run phase07:smoke
+      - run: npm run db:smoke
+      - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: validate
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: techpath
+          POSTGRES_PASSWORD: techpath
+          POSTGRES_DB: techpath
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U techpath -d techpath"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: cp .env.example .env.local
+      - run: npx playwright install --with-deps chromium
+      - run: npm run db:migrate
+      - run: npm run test:e2e
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 14

@@ -263,9 +263,9 @@ export function AdminMessagesPage({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[calc(100vh-10rem)] max-h-[calc(100vh-10rem)]">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100dvh-8.5rem)] min-h-[28rem] max-h-[calc(100dvh-8.5rem)] overflow-hidden">
       {/* Sidebar Threads List */}
-      <div className="lg:col-span-4 flex flex-col min-h-0 bg-white border border-border-strong/50 rounded-2xl shadow-xs overflow-hidden">
+      <div className="lg:col-span-4 flex flex-col min-h-0 h-full bg-white border border-border-strong/50 rounded-2xl shadow-xs overflow-hidden">
         <header className="px-5 py-4 border-b border-border-strong/45 bg-white flex-shrink-0 space-y-3">
           <div>
             <h3 className="text-sm font-bold text-text-primary">Everyone</h3>
@@ -325,9 +325,9 @@ export function AdminMessagesPage({
       </div>
 
       {/* Main Chat Thread Area */}
-      <div className="lg:col-span-8 flex flex-col min-h-0">
+      <div className="lg:col-span-8 flex flex-col min-h-0 h-full overflow-hidden">
         {selectedId && activeThread ? (
-          <div className="flex-1 flex flex-col min-h-0 relative">
+          <div className="flex-1 flex flex-col min-h-0 h-full">
             <ChatThread
               recruiterName={activeThread.fullName}
               messages={messages}

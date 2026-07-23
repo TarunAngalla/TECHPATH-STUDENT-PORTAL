@@ -116,30 +116,43 @@ export function AnnouncementsLoadingSkeleton() {
 export function MessagesLoadingSkeleton() {
   return (
     <div
-      className="glass rounded-2xl overflow-hidden shadow-glass flex flex-col min-h-[50vh] max-h-[calc(100vh-14rem)]"
+      className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100dvh-8.5rem)] min-h-[28rem] max-h-[calc(100dvh-8.5rem)] overflow-hidden"
       aria-hidden="true"
     >
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-border-subtle">
-        <Skeleton className="h-9 w-9 rounded-full" />
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-3 w-44" />
+      <div className="lg:col-span-4 flex flex-col min-h-0 h-full bg-white border border-border-strong/50 rounded-2xl shadow-xs overflow-hidden">
+        <div className="px-5 py-4 border-b border-border-strong/45 space-y-3">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-9 w-full rounded-xl" />
+        </div>
+        <div className="flex-1 overflow-hidden p-3 space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-xl" />
+          ))}
         </div>
       </div>
-      <div className="flex-1 px-5 py-4 space-y-4">
-        <div className="flex justify-start">
-          <Skeleton className="h-14 w-2/5 rounded-xl rounded-bl-sm" />
+      <div className="lg:col-span-8 flex flex-col min-h-0 h-full bg-white border border-border-strong/50 rounded-2xl shadow-xs overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border-subtle">
+          <Skeleton className="h-9 w-9 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-44" />
+          </div>
         </div>
-        <div className="flex justify-end">
-          <Skeleton className="h-10 w-1/3 rounded-xl rounded-br-sm" />
+        <div className="flex-1 px-5 py-4 space-y-4 min-h-0 overflow-hidden">
+          <div className="flex justify-start">
+            <Skeleton className="h-14 w-2/5 rounded-xl rounded-bl-sm" />
+          </div>
+          <div className="flex justify-end">
+            <Skeleton className="h-10 w-1/3 rounded-xl rounded-br-sm" />
+          </div>
+          <div className="flex justify-start">
+            <Skeleton className="h-16 w-1/2 rounded-xl rounded-bl-sm" />
+          </div>
         </div>
-        <div className="flex justify-start">
-          <Skeleton className="h-16 w-1/2 rounded-xl rounded-bl-sm" />
+        <div className="flex items-center gap-2 px-4 py-3 border-t border-border-subtle">
+          <Skeleton className="h-10 flex-1 rounded-xl" />
+          <Skeleton className="h-9 w-9 rounded-xl" />
         </div>
-      </div>
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-border-subtle">
-        <Skeleton className="h-10 flex-1 rounded-xl" />
-        <Skeleton className="h-9 w-9 rounded-xl" />
       </div>
     </div>
   );

@@ -21,10 +21,10 @@ export function CandidateLoginForm() {
             <Lock size={18} className="text-white/80" />
           </div>
           <h1 className="text-[26px] font-extrabold text-slate-900 tracking-tight leading-tight">
-            Welcome back
+            Sign in
           </h1>
           <p className="text-[13px] text-slate-500 mt-1.5 font-medium">
-            Sign in with your portal credentials
+            Candidates, recruiters, and admins use this page
           </p>
         </div>
 

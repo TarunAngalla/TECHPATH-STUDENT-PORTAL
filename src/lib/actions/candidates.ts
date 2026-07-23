@@ -3,6 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { and, count, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { logger } from "@/lib/observability/logger";
 import { z } from "zod";
 import { hashPassword, logAudit } from "@/lib/auth/password";
 import { requireAdminAuth } from "@/lib/auth/guards";
@@ -214,7 +215,7 @@ export async function createCandidateFromLead(data: z.infer<typeof createSchema>
       warning = "Account created, but invitation email delivery failed. Resend it from Account & Security.";
     }
   } catch (error) {
-    console.error("[candidate-create] secure invitation failed", error);
+    logger.error("candidate.secure_invitation_failed", error, { candidateId: result.candidate.id });
     warning = "Account created, but the secure invitation could not be issued. Resend it from Account & Security.";
   }
 

@@ -499,11 +499,11 @@ export function AdminDashboard({
                 View All
               </Link>
             </CardHeader>
-            <div className="p-4 space-y-3.5">
+            <div className="p-4 space-y-3.5 max-h-72 overflow-y-auto">
               {marketingProgress.length === 0 ? (
                 <p className="text-xs text-text-muted text-center py-4">No candidate marketing data yet</p>
               ) : (
-                marketingProgress.map((row) => (
+                marketingProgress.slice(0, 8).map((row) => (
                   <div key={row.candidateId}>
                     <div className="flex items-center justify-between text-xs font-semibold text-text-primary mb-1">
                       <span>{row.candidateName}</span>

@@ -2,6 +2,7 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { logger } from "@/lib/observability/logger";
 import { z } from "zod";
 import { requireAdminAuth } from "@/lib/auth/guards";
 import { logAudit } from "@/lib/auth/password";
@@ -227,7 +228,7 @@ export async function rejectLead(data: z.infer<typeof rejectSchema>) {
     });
     deliveryMode = delivery.mode;
   } catch (error) {
-    console.error("[lead-rejection] email delivery failed", error);
+    logger.error("email.lead_rejection_failed", error, { leadId: lead.id });
   }
   await logAudit({
     actorUserId: admin.userId,

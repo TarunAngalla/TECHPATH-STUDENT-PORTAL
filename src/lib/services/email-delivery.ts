@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/observability/logger";
 import {
   emailDeliveryLogs,
   type emailDeliveryTypes,
@@ -51,9 +52,9 @@ export async function sendTrackedEmail(input: TrackedEmailInput) {
 
   if (!apiKey) {
     if (process.env.NODE_ENV !== "production") {
-      console.info("[email:dev]", {
-        type: input.emailType,
-        to: recipient,
+      logger.info("email.logged_in_development", {
+        emailType: input.emailType,
+        recipient,
         subject: input.subject,
       });
     }

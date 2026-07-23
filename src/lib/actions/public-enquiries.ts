@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { logger } from "@/lib/observability/logger";
 import {
   publicEnquirySchema,
   submitPublicEnquiry,
@@ -52,7 +53,7 @@ export async function submitPublicEnquiryAction(
     if (!result.ok) return { error: result.error };
     return { success: true };
   } catch (error) {
-    console.error("[public-enquiry] submission failed", error);
+    logger.error("public_enquiry.submission_failed", error);
     return { error: "We could not submit your request. Please try again shortly." };
   }
 }

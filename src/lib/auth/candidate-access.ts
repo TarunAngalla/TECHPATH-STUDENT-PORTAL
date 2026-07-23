@@ -9,13 +9,8 @@ import {
   type AccountState,
 } from "@/lib/db/schema";
 
-export const candidateAccessStates = [
-  "ACCOUNT_SETUP_REQUIRED",
-  "NDA_REQUIRED",
-  "PORTAL_ACTIVE",
-  "SUSPENDED",
-] as const;
-export type CandidateAccessState = (typeof candidateAccessStates)[number];
+import { deriveCandidateAccessState, type CandidateAccessState } from "./candidate-access-state";
+export { candidateAccessStates, deriveCandidateAccessState } from "./candidate-access-state";
 
 export type CandidateAccessResult = {
   state: CandidateAccessState;
@@ -49,19 +44,18 @@ export async function getCandidateAccessState(userId: string): Promise<Candidate
     firstLogin: candidate.firstLogin,
   };
 
-  if (candidate.accountState === "suspended") {
-    return { ...base, state: "SUSPENDED", activeNdaTemplateId: null, signedActiveNda: false };
-  }
-  if (candidate.firstLogin || candidate.accountState === "pending_setup") {
-    return {
-      ...base,
-      state: "ACCOUNT_SETUP_REQUIRED",
-      activeNdaTemplateId: null,
-      signedActiveNda: false,
-    };
+  const earlyState = deriveCandidateAccessState({
+    accountState: candidate.accountState,
+    firstLogin: candidate.firstLogin,
+    ndaGateEnabled: serverFeatures.ndaGate,
+    hasActiveTemplate: false,
+    signedActiveNda: false,
+  });
+  if (earlyState === "SUSPENDED" || earlyState === "ACCOUNT_SETUP_REQUIRED") {
+    return { ...base, state: earlyState, activeNdaTemplateId: null, signedActiveNda: false };
   }
   if (!serverFeatures.ndaGate) {
-    return { ...base, state: "PORTAL_ACTIVE", activeNdaTemplateId: null, signedActiveNda: true };
+    return { ...base, state: earlyState, activeNdaTemplateId: null, signedActiveNda: true };
   }
 
   const [activeTemplate] = await db
@@ -71,7 +65,18 @@ export async function getCandidateAccessState(userId: string): Promise<Candidate
     .orderBy(desc(ndaTemplates.effectiveFrom))
     .limit(1);
   if (!activeTemplate) {
-    return { ...base, state: "NDA_REQUIRED", activeNdaTemplateId: null, signedActiveNda: false };
+    return {
+      ...base,
+      state: deriveCandidateAccessState({
+        accountState: candidate.accountState,
+        firstLogin: candidate.firstLogin,
+        ndaGateEnabled: true,
+        hasActiveTemplate: false,
+        signedActiveNda: false,
+      }),
+      activeNdaTemplateId: null,
+      signedActiveNda: false,
+    };
   }
 
   const [agreement] = await db
@@ -88,7 +93,13 @@ export async function getCandidateAccessState(userId: string): Promise<Candidate
   const signedActiveNda = Boolean(agreement);
   return {
     ...base,
-    state: signedActiveNda ? "PORTAL_ACTIVE" : "NDA_REQUIRED",
+    state: deriveCandidateAccessState({
+      accountState: candidate.accountState,
+      firstLogin: candidate.firstLogin,
+      ndaGateEnabled: true,
+      hasActiveTemplate: true,
+      signedActiveNda,
+    }),
     activeNdaTemplateId: activeTemplate.id,
     signedActiveNda,
   };

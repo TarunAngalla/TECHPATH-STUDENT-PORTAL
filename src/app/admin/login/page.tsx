@@ -1,7 +1,6 @@
-import { redirectIfAuthenticated } from "@/lib/auth/guards";
-import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
+import { redirect } from "next/navigation";
 
-export default async function AdminLoginPage() {
-  await redirectIfAuthenticated("admin");
-  return <AdminLoginForm />;
+/** Legacy route — all roles sign in at `/login`. */
+export default function AdminLoginPage() {
+  redirect("/login");
 }
