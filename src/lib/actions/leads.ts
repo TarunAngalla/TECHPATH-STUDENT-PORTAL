@@ -9,7 +9,6 @@ import { logAudit } from "@/lib/auth/password";
 import { db } from "@/lib/db";
 import { leads, users } from "@/lib/db/schema";
 import { sendConsultationScheduledCandidateEmail, sendConsultationScheduledStaffEmail, sendLeadRejectedEmail } from "@/lib/email";
-import { logger } from "@/lib/observability/logger";
 import { EXPERIENCE_YEARS_PATTERN } from "@/lib/utils/experience";
 
 const createLeadSchema = z.object({

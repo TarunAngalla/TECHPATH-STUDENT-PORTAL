@@ -12,7 +12,6 @@ import {
   Play,
   RefreshCw,
   Send,
-  ShieldCheck,
   ShieldX,
   Upload,
 } from "lucide-react";
