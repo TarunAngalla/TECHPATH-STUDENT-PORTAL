@@ -91,6 +91,7 @@ export async function middleware(request: NextRequest) {
     }
     return redirectTo(request, "/login");
   }
+  if (!isLoggedIn) return response;
 
   if (portal === "candidate" && session.role === "candidate") {
     const ndaGateEnabled = envFlag("ENABLE_NDA_GATE", false);

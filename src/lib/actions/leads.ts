@@ -2,6 +2,7 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { logger } from "@/lib/observability/logger";
 import { z } from "zod";
 import { requireAdminAuth } from "@/lib/auth/guards";
 import { logAudit } from "@/lib/auth/password";
