@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { formatDateTime } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
+import { Avatar } from "@/components/ui";
 import { ChatInput } from "./ChatInput";
 
 export type ChatMessage = {
@@ -14,10 +15,13 @@ export type ChatMessage = {
   /** Present for 1-to-1 messaging; used for optimistic merge */
   senderId?: string;
   receiverId?: string;
+  /** When the receiver read this message (null if unread / unknown) */
+  seenAt?: Date | string | null;
 };
 
 export function ChatThread({
   recruiterName,
+  avatarUrl = null,
   messages,
   onSend,
   onMount,
@@ -25,6 +29,7 @@ export function ChatThread({
   partnerRole,
 }: {
   recruiterName: string;
+  avatarUrl?: string | null;
   messages: ChatMessage[];
   onSend: (body: string) => Promise<{ error?: string }>;
   onMount?: () => void;
@@ -32,24 +37,23 @@ export function ChatThread({
   /** Role of the person on the other side of the thread (staff view). */
   partnerRole?: string;
 }) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     onMount?.();
   }, [onMount]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
+    const list = listRef.current;
+    if (!list) return;
+    // Keep scroll inside the message pane — never scroll the document/window.
+    list.scrollTo({
+      top: list.scrollHeight,
       behavior: prefersReducedMotion ? "auto" : "smooth",
     });
   }, [messages.length, prefersReducedMotion]);
-
-  const initials = recruiterName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2);
 
   const staffSubtitle =
     partnerRole === "recruiter"
@@ -60,18 +64,24 @@ export function ChatThread({
           ? "Admin"
           : "Portal user";
 
+  const isMine = (m: ChatMessage) =>
+    isStaff ? m.senderRole === "recruiter" : m.senderRole === "candidate";
+
+  const lastMessage = messages[messages.length - 1];
+  const showSeen = Boolean(
+    lastMessage &&
+      isMine(lastMessage) &&
+      !lastMessage.id.startsWith("optimistic-") &&
+      lastMessage.seenAt,
+  );
+
   return (
     <section
       aria-label={`Conversation with ${recruiterName}`}
-      className="bg-white border border-border-strong/50 rounded-2xl overflow-hidden flex flex-col shadow-xs min-h-[55vh] max-h-[calc(100vh-14rem)] w-full"
+      className="bg-white border border-border-strong/50 rounded-2xl overflow-hidden flex flex-col shadow-xs h-full min-h-0 w-full"
     >
       <header className="flex items-center gap-3 px-5 py-4 border-b border-border-strong/45 flex-shrink-0 bg-white">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 bg-brand-500 text-white shadow-xs border border-brand-500/20"
-          aria-hidden="true"
-        >
-          {initials}
-        </div>
+        <Avatar name={recruiterName} src={avatarUrl} size="md" className="flex-shrink-0 shadow-xs" />
         <div>
           <div className="text-sm font-bold text-text-primary leading-tight">{recruiterName}</div>
           <div className="text-[11px] flex items-center gap-1.5 text-success font-semibold mt-0.5">
@@ -85,6 +95,7 @@ export function ChatThread({
       </header>
 
       <div
+        ref={listRef}
         className="flex-1 overflow-y-auto px-5 py-5 space-y-4 min-h-0 bg-surface/10"
         role="log"
         aria-live="polite"
@@ -96,42 +107,61 @@ export function ChatThread({
             {isStaff ? `No messages yet. Say hello to ${recruiterName}.` : "No messages yet. Say hello to your recruiter."}
           </p>
         ) : (
-          messages.map((m) => {
-            const isMyMessage = isStaff ? m.senderRole === "recruiter" : m.senderRole === "candidate";
-            const isOptimistic = m.id.startsWith("optimistic-");
+          <>
+            {messages.map((m) => {
+              const isMyMessage = isMine(m);
+              const isOptimistic = m.id.startsWith("optimistic-");
+              const showTimestamp = isOptimistic || expandedId === m.id;
 
-            return (
-              <div
-                key={m.id}
-                className={cn("flex", isMyMessage ? "justify-end" : "justify-start")}
-              >
-                <div className="max-w-[70%]">
-                  <div
-                    className={cn(
-                      "px-4 py-2.5 rounded-2xl text-xs leading-relaxed font-medium shadow-xs border",
-                      isMyMessage
-                        ? "bg-brand-500 text-white border-brand-500 rounded-br-sm"
-                        : "bg-white text-text-primary border-border-strong/40 rounded-bl-sm",
-                      isOptimistic && "opacity-80",
+              return (
+                <div
+                  key={m.id}
+                  className={cn("flex", isMyMessage ? "justify-end" : "justify-start")}
+                >
+                  <div className="max-w-[70%]">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedId((current) => (current === m.id ? null : m.id))
+                      }
+                      className={cn(
+                        "w-full text-left px-4 py-2.5 rounded-2xl text-xs leading-relaxed font-medium shadow-xs border cursor-pointer transition-opacity",
+                        isMyMessage
+                          ? "bg-brand-500 text-white border-brand-500 rounded-br-sm"
+                          : "bg-white text-text-primary border-border-strong/40 rounded-bl-sm",
+                        isOptimistic && "opacity-80",
+                      )}
+                      aria-expanded={showTimestamp}
+                      aria-label={
+                        showTimestamp
+                          ? "Hide message time"
+                          : "Show message time"
+                      }
+                    >
+                      {m.body}
+                    </button>
+                    {showTimestamp && (
+                      <time
+                        className={cn(
+                          "text-[10px] mt-1.5 block text-text-muted font-semibold px-1",
+                          isMyMessage && "text-right",
+                        )}
+                        dateTime={String(m.sentAt)}
+                      >
+                        {isOptimistic ? "Sending…" : formatDateTime(m.sentAt)}
+                      </time>
                     )}
-                  >
-                    {m.body}
                   </div>
-                  <time
-                    className={cn(
-                      "text-[10px] mt-1.5 block text-text-muted font-semibold px-1",
-                      isMyMessage && "text-right",
-                    )}
-                    dateTime={String(m.sentAt)}
-                  >
-                    {isOptimistic ? "Sending…" : formatDateTime(m.sentAt)}
-                  </time>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+            {showSeen && (
+              <p className="text-[10px] text-right text-text-muted font-semibold px-1 -mt-1">
+                Seen
+              </p>
+            )}
+          </>
         )}
-        <div ref={bottomRef} />
       </div>
 
       <div className="flex-shrink-0 bg-white">

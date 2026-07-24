@@ -41,3 +41,16 @@ next-env.d.ts
 
 # uploads (local dev)
 /public/uploads
+/uploads
+
+# browser tests
+/playwright-report
+/test-results
+/blob-report
+
+# local patch backups
+/.techpath-patch-backups
+
+# local phase backups
+.techpath-phase07-last-backup
+.techpath-*-last-backup

@@ -1,105 +1,81 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   CheckCircle2,
   Building,
   Send,
   Compass,
-  ChevronRight,
   Clock,
   Circle
 } from "lucide-react";
 import { StaggerChildren, StaggerItem } from "@/components/motion/PageTransition";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { JOURNEY_STEPS } from "@/lib/constants/journey";
-import type { Application } from "@/lib/db/schema";
+import type { Application, MarketingStatus } from "@/lib/db/schema";
+import { MARKETING_STATUS_LABELS } from "@/lib/constants/marketing";
 import { formatDate } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 
-const STAGE_INFO: Record<
-  number,
-  { title: string; meaning: string; nextAction: string }
-> = {
+const STAGE_INFO: Record<number, { title: string; nextAction: string }> = {
   0: {
     title: JOURNEY_STEPS[0],
-    meaning:
-      "You're completing initial training and profile setup with your recruiter. This stage covers resume positioning and getting your candidate profile ready for marketing.",
-    nextAction:
-      "Finish any assigned training modules and make sure your contact details are up to date under Settings.",
+    nextAction: "Finish assigned trainings and keep your contact details current.",
   },
   1: {
     title: JOURNEY_STEPS[1],
-    meaning:
-      "A dedicated recruiter has been assigned to guide your job search. They'll review your profile and prepare it for submission to partner companies.",
-    nextAction:
-      "Introduce yourself via Messages if you haven't already. Your recruiter will reach out with next steps.",
+    nextAction: "Message your recruiter if you haven’t introduced yourself yet.",
   },
   2: {
     title: JOURNEY_STEPS[2],
-    meaning:
-      "Your profile is now live and being actively submitted to open roles by your recruiter and their partner network. This is usually the longest stage — most candidates are here for several weeks while applications and first-round conversations build up.",
-    nextAction:
-      "Nothing required from you right now beyond staying reachable. Watch for interview requests under Upcoming, and keep an eye on Applications in case a company sends a take-home task.",
+    nextAction: "Watch Interviews, Assessments, and Announcements for updates.",
   },
   3: {
     title: JOURNEY_STEPS[3],
-    meaning:
-      "You're in active interview and assessment stages with one or more companies. Your recruiter is coordinating scheduling and prep notes for each round.",
-    nextAction:
-      "Review upcoming interviews under Upcoming, complete any assigned assessments, and keep your recruiter updated via Messages.",
+    nextAction: "Review upcoming interviews and complete assigned assessments.",
   },
 };
 
 export function CandidateProgressPage({
   journeyStage,
   applications,
+  journeyEvents,
+  marketingStatus,
   createdAt,
 }: {
   journeyStage: number;
   applications: Application[];
+  journeyEvents: {
+    id: string;
+    stage: number;
+    previousStage: number | null;
+    eventType: string;
+    source: string;
+    note: string | null;
+    occurredAt: Date | string;
+  }[];
+  marketingStatus: MarketingStatus;
   createdAt: Date | string;
 }) {
   const stage = STAGE_INFO[journeyStage] ?? STAGE_INFO[0];
   const uniqueCompanies = new Set(applications.map((a) => a.companyName)).size;
 
   const timeline = JOURNEY_STEPS.map((label, i) => {
+    const stageEvents = journeyEvents.filter((event) => event.stage === i);
+    const latestEvent = stageEvents.at(-1);
     const done = i < journeyStage;
     const active = i === journeyStage;
-    let date = "Not started";
-    let note = "";
-
-    if (i === 0) {
-      date = formatDate(createdAt);
-      note = done ? "Completed resume and profile training with your recruiter." : "In progress.";
-    } else if (i === 1) {
-      date = journeyStage >= 1 ? formatDate(createdAt) : "Not started";
-      note = journeyStage >= 1 ? "Recruiter assigned to your profile." : "Waiting for recruiter assignment.";
-    } else if (i === 2) {
-      date = journeyStage >= 2 ? formatDate(createdAt) : "Not started";
-      note =
-        journeyStage >= 2
-          ? `Your profile went live with ${uniqueCompanies || "several"} companies in the pipeline.`
-          : "Begins once marketing launches.";
-    } else if (i === 3) {
-      const hasInterview = applications.some((a) =>
-        ["interview_r1", "interview_r2", "interview_r3", "hr_round", "final_round", "offer"].includes(
-          a.status,
-        ),
-      );
-      date = hasInterview ? "In progress" : "Not started";
-      note = hasInterview
-        ? "Active interviews and assessments underway."
-        : "Begins once you have a confirmed first interview.";
-    }
 
     return {
       label,
-      date,
-      duration: active ? "Current stage" : done ? "Complete" : null,
-      note,
-      done: done || active,
+      date: latestEvent
+        ? formatDate(latestEvent.occurredAt)
+        : i === 0 && journeyStage === 0 && journeyEvents.length === 0
+          ? formatDate(createdAt)
+          : "Not started",
+      duration: active ? "Current stage" : done && latestEvent ? "Complete" : null,
+      note: latestEvent?.note?.trim() || (latestEvent ? "Stage update recorded." : "Not started yet."),
+      done: Boolean(latestEvent) || active,
       active,
     };
   });
@@ -107,7 +83,7 @@ export function CandidateProgressPage({
   const statTiles = [
     { value: uniqueCompanies, label: "Companies in Pipeline", icon: Building, iconColor: "text-brand-500 bg-brand-50 border border-brand-100" },
     { value: applications.length, label: "Applications Submitted", icon: Send, iconColor: "text-success bg-green-50 border border-green-100" },
-    { value: `${journeyStage + 1} / ${JOURNEY_STEPS.length}`, label: "Current Stage", icon: Compass, iconColor: "text-purple-600 bg-purple-50 border border-purple-100" },
+    { value: MARKETING_STATUS_LABELS[marketingStatus], label: "Marketing Status", icon: Compass, iconColor: "text-purple-600 bg-purple-50 border border-purple-100" },
   ];
 
   return (
@@ -117,23 +93,12 @@ export function CandidateProgressPage({
       </h2>
 
 
-      {/* Highlight Where You Are Card */}
       <Card variant="glass" className="col-span-full bg-brand-50/15 border border-brand-500/20 rounded-2xl p-6 shadow-xs">
-        <span className="text-[10px] font-semibold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-md uppercase tracking-wider">Current Status</span>
-        <h3 className="text-base font-bold text-text-primary mt-2">Active Stage: {stage.title}</h3>
-        <p className="text-xs text-text-muted mt-1.5 max-w-3xl leading-relaxed">{stage.meaning}</p>
-        
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-white border border-border-strong/50 shadow-xs mt-4">
-          <CheckCircle2
-            size={16}
-            className="text-success mt-0.5 flex-shrink-0"
-            aria-hidden="true"
-          />
-          <div>
-            <div className="text-xs font-bold text-text-primary">Recommended Actions</div>
-            <p className="text-xs text-text-muted mt-1 leading-relaxed">{stage.nextAction}</p>
-          </div>
-        </div>
+        <span className="text-[10px] font-semibold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
+          Current stage
+        </span>
+        <h3 className="text-base font-bold text-text-primary mt-2">{stage.title}</h3>
+        <p className="text-xs text-text-muted mt-1.5">{stage.nextAction}</p>
       </Card>
 
       {/* Stat grid */}
@@ -212,16 +177,6 @@ export function CandidateProgressPage({
           </div>
         </CardContent>
       </Card>
-
-      {/* Footer recruiter help message */}
-      <div className="col-span-full text-center py-2">
-        <Link
-          href="/messages"
-          className="text-xs font-semibold text-brand-500 hover:underline inline-flex items-center gap-1"
-        >
-          Have questions about your placement timeline? Contact Recruiter <ChevronRight size={13} />
-        </Link>
-      </div>
     </section>
   );
 }

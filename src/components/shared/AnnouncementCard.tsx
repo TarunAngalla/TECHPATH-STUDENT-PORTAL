@@ -3,27 +3,31 @@
 import { Megaphone } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { formatDate } from "@/lib/utils/dates";
+import { formatDate, formatIsoTimestampsInText } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 
 export function AnnouncementCard({
+  id,
   title,
   body,
   createdAt,
   isRead,
   onMarkRead,
 }: {
+  id?: string;
   title: string;
   body: string;
   createdAt: Date | string;
   isRead: boolean;
   onMarkRead?: () => void;
 }) {
+  const displayBody = formatIsoTimestampsInText(body);
   return (
     <Card
+      id={id}
       variant="glass"
       className={cn(
-        "relative overflow-hidden p-5 bg-white shadow-xs rounded-2xl transition-all duration-200 hover:border-border-strong border",
+        "relative overflow-hidden p-5 bg-white shadow-xs rounded-2xl transition-all duration-200 hover:border-border-strong border scroll-mt-24",
         isRead ? "border-border-strong/40" : "border-border-strong/60 border-l-4 border-l-brand-500 bg-brand-50/5 cursor-pointer"
       )}
       aria-label={isRead ? undefined : `Unread announcement: ${title}`}
@@ -48,7 +52,7 @@ export function AnnouncementCard({
         )}>
           <Megaphone size={12} aria-hidden="true" />
         </div>
-        <time className="text-xs text-text-muted font-semibold" dateTime={String(createdAt)}>
+        <time className="text-xs text-text-muted font-semibold" dateTime={toValidDateTimeAttr(createdAt)}>
           {formatDate(createdAt)}
         </time>
         {!isRead && (
@@ -66,7 +70,12 @@ export function AnnouncementCard({
         )}
       </div>
       <h3 className="text-sm font-bold mb-1 text-text-primary leading-tight">{title}</h3>
-      <p className="text-xs text-text-muted leading-relaxed font-medium mt-1.5">{body}</p>
+      <p className="text-xs text-text-muted leading-relaxed font-medium mt-1.5">{displayBody}</p>
     </Card>
   );
+}
+
+function toValidDateTimeAttr(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }

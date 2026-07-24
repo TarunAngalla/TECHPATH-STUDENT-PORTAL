@@ -30,7 +30,13 @@ export function AdminSidebar({
   const pathname = usePathname();
   const navSections = ADMIN_NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => !(staffRole === "recruiter" && item.key === "team")),
+    displayLabel: staffRole === "recruiter" ? section.recruiterLabel ?? section.label : section.label,
+    items: section.items
+      .filter((item) => staffRole === "admin" || item.audience === "staff")
+      .map((item) => ({
+        ...item,
+        displayLabel: staffRole === "recruiter" ? item.recruiterLabel ?? item.label : item.label,
+      })),
   })).filter((section) => section.items.length > 0);
 
   return (
@@ -45,7 +51,7 @@ export function AdminSidebar({
       )}
       <aside
         className={cn(
-          "fixed lg:sticky z-30 top-0 left-0 h-full lg:h-screen flex flex-col transition-all duration-300 shadow-elevated glass-dark",
+          "fixed z-30 top-0 left-0 h-dvh flex flex-col transition-all duration-300 shadow-elevated glass-dark",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           collapsed ? "w-64 lg:w-20" : "w-64",
         )}
@@ -66,7 +72,7 @@ export function AdminSidebar({
             <div key={section.label} className={si > 0 ? "mt-5" : ""}>
               {!collapsed && (
                 <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                  {section.label}
+                  {section.displayLabel}
                 </div>
               )}
               <div className="space-y-0.5">
@@ -92,10 +98,10 @@ export function AdminSidebar({
                           ? "bg-brand-500 text-white shadow-sm"
                           : "text-white/70 hover:text-white hover:bg-white/6",
                       )}
-                      title={collapsed ? item.label : undefined}
+                      title={collapsed ? item.displayLabel : undefined}
                     >
                       <item.icon size={17} aria-hidden="true" />
-                      {!collapsed && <span className="flex-1">{item.label}</span>}
+                      {!collapsed && <span className="flex-1">{item.displayLabel}</span>}
                       {badge != null && badge > 0 && (
                         <Badge
                           variant="accent"
@@ -116,12 +122,10 @@ export function AdminSidebar({
         </nav>
 
         {!collapsed && (
-          <div className="mx-3 my-2 p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/80">
-            <div className="font-semibold mb-1 text-white">Need Help?</div>
-            <div className="text-[10px] text-white/50 mb-3">Contact support for any questions or assistance.</div>
+          <div className="mx-3 my-2">
             <Button variant="outline" size="sm" asChild className="w-full text-white border-white/20 hover:bg-white/10 hover:text-white">
               <a href="mailto:support@thetechpath.com" className="flex items-center justify-center gap-1.5 text-xs text-white">
-                Contact Support
+                Contact support
               </a>
             </Button>
           </div>

@@ -6,6 +6,10 @@ import { useState } from "react";
 import type { Application } from "@/lib/db/schema";
 import { CANDIDATE_PAGE_TITLES, type CandidateNavKey } from "@/lib/constants/candidate-nav";
 import { useScrollToTopOnRouteChange } from "@/lib/hooks/useScrollToTopOnRouteChange";
+import { useUnreadMessageCount } from "@/lib/hooks/useUnreadMessageCount";
+import { useCandidateAnnouncements } from "@/lib/hooks/useCandidateAnnouncements";
+import { useCandidateActivityBadges } from "@/lib/hooks/useCandidateActivityBadges";
+import { cn } from "@/lib/utils/cn";
 import { PageTransition } from "@/components/motion/PageTransition";
 import { CandidateSidebar } from "./CandidateSidebar";
 import { CandidateTopbar } from "./CandidateTopbar";
@@ -19,24 +23,34 @@ function pathToNavKey(pathname: string): CandidateNavKey {
 export function CandidatePortalShell({
   children,
   candidateName,
+  candidateAvatarUrl = null,
+  candidateId = null,
   messageBadge,
   unreadAnnouncements,
   announcements,
   applications,
+  activityBadges = { interviews: 0, assessments: 0 },
 }: {
   children: React.ReactNode;
   candidateName: string;
+  candidateAvatarUrl?: string | null;
+  candidateId?: string | null;
   messageBadge: number;
   unreadAnnouncements: number;
   announcements: { id: string; title: string; createdAt: Date | string; isRead: boolean }[];
   applications: Application[];
+  activityBadges?: { interviews: number; assessments: number };
 }) {
   const pathname = usePathname();
   useScrollToTopOnRouteChange();
+  const liveMessageBadge = useUnreadMessageCount(messageBadge);
+  const liveAnnouncements = useCandidateAnnouncements(unreadAnnouncements, announcements);
+  const liveActivityBadges = useCandidateActivityBadges(activityBadges);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const navKey = pathToNavKey(pathname);
   const title = CANDIDATE_PAGE_TITLES[navKey];
+  const hideFooter = pathname === "/messages" || pathname.startsWith("/messages?");
 
   return (
     <div className="min-h-screen flex">
@@ -49,26 +63,42 @@ export function CandidatePortalShell({
       <CandidateSidebar
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
-        messageBadge={messageBadge}
+        messageBadge={liveMessageBadge}
+        interviewBadge={liveActivityBadges.interviews}
+        assessmentBadge={liveActivityBadges.assessments}
         collapsed={collapsed}
       />
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div
+        aria-hidden="true"
+        className={cn(
+          "hidden lg:block flex-shrink-0 transition-[width] duration-300",
+          collapsed ? "w-20" : "w-64",
+        )}
+      />
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
         <CandidateTopbar
           title={title}
           setMobileOpen={setMobileOpen}
           candidateName={candidateName}
-          unreadAnnouncements={unreadAnnouncements}
-          announcements={announcements}
+          candidateAvatarUrl={candidateAvatarUrl}
+          candidateId={candidateId}
+          unreadAnnouncements={liveAnnouncements.unreadCount}
+          unreadMessages={liveMessageBadge}
+          announcements={liveAnnouncements.announcements}
           applications={applications}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
         />
-        <main id="main-content" className="flex-1 px-5 sm:px-8 py-6 flex flex-col" tabIndex={-1}>
-          <div className="max-w-[1500px] mx-auto w-full flex-1 flex flex-col">
-            <div className="flex-1">
+        <main
+          id="main-content"
+          className={cn("flex-1 px-5 sm:px-8 py-6 flex flex-col min-h-0", hideFooter && "overflow-hidden")}
+          tabIndex={-1}
+        >
+          <div className="max-w-[1500px] mx-auto w-full flex-1 flex flex-col min-h-0">
+            <div className="flex-1 min-h-0">
               <PageTransition key={pathname}>{children}</PageTransition>
             </div>
-            <PortalFooter />
+            {!hideFooter && <PortalFooter />}
           </div>
         </main>
       </div>

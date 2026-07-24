@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { ExternalLink, Plus } from "lucide-react";
 import {
   createApplication,
   updateApplicationAdmin,
@@ -17,13 +18,7 @@ import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 function ApplicationRow({ app }: { app: Application }) {
   const router = useRouter();
   const [status, setStatus] = useState<ApplicationStatus>(app.status as ApplicationStatus);
-  const [comment, setComment] = useState(app.comment);
-  const [upcomingLabel, setUpcomingLabel] = useState(app.upcomingLabel ?? "");
-  const [upcomingWhen, setUpcomingWhen] = useState(
-    app.upcomingWhen ? new Date(app.upcomingWhen).toISOString().slice(0, 16) : "",
-  );
-  const [upcomingWithPerson, setUpcomingWithPerson] = useState(app.upcomingWithPerson ?? "");
-  const [upcomingPrep, setUpcomingPrep] = useState(app.upcomingPrep ?? "");
+  const [comment, setComment] = useState(app.candidateVisibleNotes ?? app.comment);
   const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -73,69 +68,31 @@ function ApplicationRow({ app }: { app: Application }) {
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           onBlur={() => {
-            if (comment !== app.comment) save({ applicationId: app.id, comment });
+            if (comment !== (app.candidateVisibleNotes ?? app.comment)) save({ applicationId: app.id, candidateVisibleNotes: comment || null });
           }}
           rows={2}
-          placeholder="Add a note..."
+          placeholder="Candidate-visible note..."
           className="text-[11px] min-h-0"
         />
       </td>
-      <td className="px-4 py-3.5 min-w-[200px]">
-        <div className="space-y-1.5">
-          <Input
-            value={upcomingLabel}
-            onChange={(e) => setUpcomingLabel(e.target.value)}
-            onBlur={() => {
-              if (upcomingLabel !== (app.upcomingLabel ?? ""))
-                save({ applicationId: app.id, upcomingLabel: upcomingLabel || null });
-            }}
-            placeholder="Upcoming label"
-            className="h-8 text-[11px]"
-          />
-          <Input
-            type="datetime-local"
-            value={upcomingWhen}
-            onChange={(e) => setUpcomingWhen(e.target.value)}
-            onBlur={() => {
-              const orig = app.upcomingWhen
-                ? new Date(app.upcomingWhen).toISOString().slice(0, 16)
-                : "";
-              if (upcomingWhen !== orig)
-                save({
-                  applicationId: app.id,
-                  upcomingWhen: upcomingWhen || null,
-                });
-            }}
-            className="h-8 text-[11px]"
-          />
-          <Input
-            value={upcomingWithPerson}
-            onChange={(e) => setUpcomingWithPerson(e.target.value)}
-            onBlur={() => {
-              if (upcomingWithPerson !== (app.upcomingWithPerson ?? ""))
-                save({
-                  applicationId: app.id,
-                  upcomingWithPerson: upcomingWithPerson || null,
-                });
-            }}
-            placeholder="With person"
-            className="h-8 text-[11px]"
-          />
-          <Textarea
-            value={upcomingPrep}
-            onChange={(e) => setUpcomingPrep(e.target.value)}
-            onBlur={() => {
-              if (upcomingPrep !== (app.upcomingPrep ?? ""))
-                save({ applicationId: app.id, upcomingPrep: upcomingPrep || null });
-            }}
-            rows={2}
-            placeholder="Prep notes"
-            className="text-[11px] min-h-0"
-          />
-        </div>
+      <td className="px-4 py-3.5 min-w-[200px] text-xs text-text-muted">
+        {app.upcomingWhen && app.upcomingLabel ? (
+          <div>
+            <div className="font-semibold text-text-primary">{app.upcomingLabel}</div>
+            <div className="mt-1">{formatDate(app.upcomingWhen)}</div>
+            <div className="text-[10px] mt-1">Managed through interview and assessment activity.</div>
+          </div>
+        ) : (
+          <span>No upcoming activity</span>
+        )}
       </td>
       <td className="px-2 py-3.5">
-        {saved && <span className="text-[10px] font-medium text-success">Saved</span>}
+        <div className="flex flex-col gap-1.5 items-start">
+          {saved && <span className="text-[10px] font-medium text-success">Saved</span>}
+          <Link href={`/admin/applications/${app.id}`} className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-500 hover:underline">
+            Manage activity <ExternalLink size={10} />
+          </Link>
+        </div>
       </td>
     </tr>
   );

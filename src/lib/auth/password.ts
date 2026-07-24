@@ -1,7 +1,9 @@
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { randomInt } from "crypto";
+import { eq, sql } from "drizzle-orm";
+import { getOrgEmailDomain } from "@/lib/config/org";
 import { db } from "@/lib/db";
-import { auditLog, candidates, passwordChangeLog, users } from "@/lib/db/schema";
+import { auditLog, candidates, passwordChangeLog, users, type AccountState } from "@/lib/db/schema";
 
 const SALT_ROUNDS = 12;
 
@@ -19,30 +21,43 @@ export async function changePassword({
   method,
   changedByUserId,
   clearFirstLogin = false,
+  nextAccountState,
+  invalidateSessions = true,
 }: {
   userId: string;
   newPassword: string;
   method: "forced_first_login" | "self_service" | "admin_reset";
   changedByUserId: string;
   clearFirstLogin?: boolean;
+  nextAccountState?: AccountState;
+  invalidateSessions?: boolean;
 }) {
   const passwordHash = await hashPassword(newPassword);
 
-  await db.transaction(async (tx) => {
-    await tx
+  const [updated] = await db.transaction(async (tx) => {
+    const [row] = await tx
       .update(users)
       .set({
         passwordHash,
         ...(clearFirstLogin ? { firstLogin: false } : {}),
+        ...(nextAccountState ? { accountState: nextAccountState } : {}),
+        ...(invalidateSessions ? { sessionVersion: sql`${users.sessionVersion} + 1` } : {}),
       })
-      .where(eq(users.id, userId));
+      .where(eq(users.id, userId))
+      .returning({ sessionVersion: users.sessionVersion, accountState: users.accountState });
 
     await tx.insert(passwordChangeLog).values({
       userId,
       method,
       changedByUserId,
     });
+    return [row];
   });
+
+  return {
+    sessionVersion: updated.sessionVersion,
+    accountState: updated.accountState,
+  };
 }
 
 export async function authenticateUser(email: string, password: string) {
@@ -68,6 +83,8 @@ export async function authenticateUser(email: string, password: string) {
     role: user.role,
     firstLogin: user.firstLogin,
     candidateId,
+    accountState: user.accountState,
+    sessionVersion: user.sessionVersion,
   };
 }
 
@@ -91,15 +108,19 @@ export async function logAudit({
 }
 
 export function isAdminEmail(email: string) {
-  const domain = process.env.ADMIN_EMAIL_DOMAIN ?? "thetechpath.com";
-  return email.toLowerCase().endsWith(`@${domain}`);
+  try {
+    const domain = getOrgEmailDomain();
+    return email.toLowerCase().endsWith(`@${domain}`);
+  } catch {
+    return false;
+  }
 }
 
 export function generateTempPassword(length = 12) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$";
   let result = "";
   for (let i = 0; i < length; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
+    result += chars[randomInt(chars.length)];
   }
   return result;
 }

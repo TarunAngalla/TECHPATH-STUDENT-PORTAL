@@ -16,9 +16,6 @@ import type { Application } from "@/lib/db/schema";
 import { formatDate } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 
-const APPLICATIONS_HELP =
-  "Comments are saved notes visible to both you and your recruiter — not a live chat.";
-
 function useDebouncedValue<T>(value: T, delay = 300): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -29,13 +26,9 @@ function useDebouncedValue<T>(value: T, delay = 300): T {
 }
 
 function ApplicationCommentField({
-  id,
-  value,
-  onSave,
+  id, value, onSave, readOnly = false,
 }: {
-  id: string;
-  value: string;
-  onSave: (comment: string) => Promise<{ error?: string }>;
+  id: string; value: string; onSave: (comment: string) => Promise<{ error?: string }>; readOnly?: boolean;
 }) {
   const [text, setText] = useState(value);
   const [isPending, startTransition] = useTransition();
@@ -53,6 +46,9 @@ function ApplicationCommentField({
     });
   };
 
+  if (readOnly) {
+    return <div className="min-h-[50px] rounded-xl border border-border-strong/30 bg-surface/20 px-3 py-2 text-xs leading-relaxed text-text-muted">{value.trim() || "No candidate-visible note yet."}</div>;
+  }
   return (
     <Textarea
       id={id}
@@ -93,7 +89,7 @@ function FilterChip({
   );
 }
 
-function ApplicationCard({ app }: { app: Application }) {
+function ApplicationCard({ app, allowComments }: { app: Application; allowComments: boolean }) {
   return (
     <Card variant="glass" className="p-4 space-y-3 bg-white border border-border-strong/50 shadow-xs rounded-2xl">
       <div className="flex items-start justify-between gap-3">
@@ -112,14 +108,15 @@ function ApplicationCard({ app }: { app: Application }) {
       </div>
       <ApplicationCommentField
         id={`comment-mobile-${app.id}`}
-        value={app.comment}
+        value={app.candidateVisibleNotes ?? app.comment}
         onSave={(comment) => saveApplicationComment(app.id, comment)}
+        readOnly={!allowComments}
       />
     </Card>
   );
 }
 
-export function CandidateApplicationsTable({ applications }: { applications: Application[] }) {
+export function CandidateApplicationsTable({ applications, allowComments = false }: { applications: Application[]; allowComments?: boolean }) {
   const [filter, setFilter] = useState<ApplicationStatus | "all">("all");
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query);
@@ -197,7 +194,7 @@ export function CandidateApplicationsTable({ applications }: { applications: App
         <>
           <div className="md:hidden space-y-3" aria-label="Applications">
             {filtered.map((app) => (
-              <ApplicationCard key={app.id} app={app} />
+              <ApplicationCard key={app.id} app={app} allowComments={allowComments} />
             ))}
           </div>
 
@@ -254,8 +251,9 @@ export function CandidateApplicationsTable({ applications }: { applications: App
                       <td className="px-5 py-4 min-w-[220px]">
                         <ApplicationCommentField
                           id={`comment-${app.id}`}
-                          value={app.comment}
+                          value={app.candidateVisibleNotes ?? app.comment}
                           onSave={(comment) => saveApplicationComment(app.id, comment)}
+                          readOnly={!allowComments}
                         />
                       </td>
                     </tr>
@@ -266,8 +264,6 @@ export function CandidateApplicationsTable({ applications }: { applications: App
           </Card>
         </>
       )}
-
-      <p className="text-[11px] mt-4 text-text-muted leading-relaxed">{APPLICATIONS_HELP}</p>
     </section>
   );
 }

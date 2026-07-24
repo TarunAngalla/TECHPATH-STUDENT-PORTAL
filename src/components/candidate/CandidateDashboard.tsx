@@ -15,7 +15,6 @@ import {
   Users,
   Send,
   ClipboardCheck,
-  Headphones,
   Target,
   ShieldCheck,
   Calendar,
@@ -24,8 +23,9 @@ import {
 import { Avatar, Badge, Button, Card, CardHeader, CardTitle, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui";
 import { dayLabel, daysUntil, formatDate, formatDateTime } from "@/lib/utils/dates";
 import { downloadInterviewICS, getGoogleCalendarLink } from "@/lib/utils/ics";
-import type { Application } from "@/lib/db/schema";
+import type { Application, MarketingStatus } from "@/lib/db/schema";
 import { STATUS_META, type ApplicationStatus } from "@/lib/constants/status-meta";
+import { hrefForAnnouncement } from "@/lib/notifications/announcement-links";
 import { cn } from "@/lib/utils/cn";
 
 type ChecklistItem = {
@@ -121,7 +121,7 @@ function NextUpBanner({ next }: { next: Application }) {
             </DropdownMenuContent>
           </DropdownMenu>
           <Button size="sm" asChild className="text-xs bg-brand-500 hover:bg-brand-600 text-white">
-            <Link href="/upcoming">View details</Link>
+            <Link href="/interview-details">View details</Link>
           </Button>
         </div>
       </div>
@@ -132,7 +132,7 @@ function NextUpBanner({ next }: { next: Application }) {
 function RecruiterCard({
   recruiter,
 }: {
-  recruiter: { id: string; email: string; name: string } | null;
+  recruiter: { id: string; email: string; name: string; title: string; phone: string | null; timezone: string } | null;
   candidateId?: string;
 }) {
   const [quickMsg, setQuickMsg] = useState("");
@@ -162,7 +162,7 @@ function RecruiterCard({
             <Avatar name={recruiter.name} size="lg" className="h-12 w-12 border border-border-strong/50 shadow-xs" />
             <div>
               <div className="text-sm font-semibold text-text-primary">{recruiter.name}</div>
-              <div className="text-xs text-text-muted">Senior Talent Marketing Specialist</div>
+              <div className="text-xs text-text-muted">{recruiter.title}</div>
             </div>
           </div>
           <div className="text-xs text-text-muted space-y-2">
@@ -172,7 +172,7 @@ function RecruiterCard({
             </div>
             <div className="flex items-center gap-2">
               <Users size={13} className="text-text-muted/70" />
-              <span>+1 (469) 555-0187</span>
+              <span>{recruiter.phone ?? "Phone available through TechPath support"}</span>
             </div>
           </div>
           <div className="flex flex-col gap-2.5 pt-2">
@@ -313,15 +313,21 @@ function AnnouncementsCard({
 
         <div className="space-y-4">
           {announcements.map((ann, i) => (
-            <div key={ann.id || `ann-${i}`} className="flex gap-3">
+            <Link
+              key={ann.id || `ann-${i}`}
+              href={hrefForAnnouncement(ann.title, ann.id)}
+              className="flex gap-3 group"
+            >
               <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center text-success flex-shrink-0">
                 <Send size={14} />
               </div>
               <div>
-                <div className="text-xs font-semibold text-text-primary">{ann.title}</div>
+                <div className="text-xs font-semibold text-text-primary group-hover:text-brand-500 transition-colors">
+                  {ann.title}
+                </div>
                 <div className="text-[10px] text-text-muted mt-0.5">{formatDate(ann.createdAt)}</div>
               </div>
-            </div>
+            </Link>
           ))}
 
           {checklist.filter((item) => !item.done).map((item, i) => (
@@ -341,7 +347,7 @@ function AnnouncementsCard({
       </div>
 
       <div className="pt-5 border-t border-border-subtle mt-5">
-        <Link href="/upcoming" className="text-xs font-semibold text-brand-500 hover:underline flex items-center justify-center gap-1">
+        <Link href="/interview-details" className="text-xs font-semibold text-brand-500 hover:underline flex items-center justify-center gap-1">
           View My Interviews & Assessments <ChevronRight size={13} />
         </Link>
       </div>
@@ -353,6 +359,7 @@ export function CandidateDashboard({
   candidateId,
   candidateName,
   journeyStage,
+  marketingStatus,
   profileLastUpdated,
   stats,
   recruiter,
@@ -362,11 +369,15 @@ export function CandidateDashboard({
   candidateId: string;
   candidateName: string;
   journeyStage: number;
+  marketingStatus: MarketingStatus;
   profileLastUpdated: string;
   stats: {
     totalApplications: number;
     inInterviewProcess: number;
+    interviewsAttended: number;
+    assessmentsCompleted: number;
     upcomingThisMonth: number;
+    upcomingInterviewCount: number;
     appsThisWeek: number;
     applications: Application[];
     upcoming: Application[];
@@ -378,28 +389,18 @@ export function CandidateDashboard({
     };
     recentActivity: Application[];
   };
-  recruiter: { id: string; email: string; name: string } | null;
+  recruiter: { id: string; email: string; name: string; title: string; phone: string | null; timezone: string } | null;
   announcements: { id: string; title: string; createdAt: Date | string }[];
   checklist: ChecklistItem[];
 }) {
-  const uniqueCompanies = new Set(stats.applications.map((a) => a.companyName)).size;
   const nextUp = stats.upcoming[0];
   const emptyApplications = stats.totalApplications === 0;
-  const marketingLive = journeyStage >= 2;
+  const marketingLive = marketingStatus === "live" || marketingStatus === "completed";
 
-  const welcomeSubtitle = emptyApplications
-    ? marketingLive
-      ? "Marketing is live. Your recruiter will add applications here as they submit them to employers."
-      : "Your recruiter is preparing your profile. Check Messages or trainings while you wait."
-    : `You're being marketed to employers with ${stats.totalApplications} applications across ${uniqueCompanies} companies.`;
-
-  const emptyTitle = marketingLive
-    ? "Marketing is underway"
-    : "Your recruiter is setting up your profile";
-
+  const emptyTitle = marketingLive ? "No applications yet" : "Profile setup in progress";
   const emptyBody = marketingLive
-    ? "No applications have been logged yet. As soon as your recruiter submits roles for you, they will show up on Applications and here on your dashboard."
-    : "Applications will appear here once marketing begins. Meanwhile, complete your checklist and message your recruiter if you have questions.";
+    ? "Applications appear here when your recruiter submits roles."
+    : "Applications appear here once marketing begins.";
 
   return (
     <div className="grid gap-6">
@@ -409,13 +410,17 @@ export function CandidateDashboard({
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-text-muted font-medium">Profile last updated {profileLastUpdated}</span>
             </div>
-            <h2 className="text-2xl font-bold text-text-primary mt-1.5">Welcome back, {candidateName}!</h2>
-            <p className="text-sm text-text-muted mt-1 max-w-xl">{welcomeSubtitle}</p>
+            <h2 className="text-2xl font-bold text-text-primary mt-1.5">Welcome back, {candidateName}</h2>
           </div>
           <div className="flex-shrink-0">
-            <Badge variant="accent" className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold">
-              <CheckCircle2 size={12} /> Stage {journeyStage} · Active
-            </Badge>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Badge variant="success" className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold">
+                <ShieldCheck size={12} /> Post-NDA Access
+              </Badge>
+              <Badge variant="accent" className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold">
+                <CheckCircle2 size={12} /> {marketingLive ? "Marketing Live" : `Journey Stage ${journeyStage + 1}`}
+              </Badge>
+            </div>
           </div>
         </div>
 
@@ -466,8 +471,8 @@ export function CandidateDashboard({
               <Link href="/messages">Message recruiter</Link>
             </Button>
             <Button asChild size="sm" variant="outline">
-              <Link href={marketingLive ? "/applications" : "/documents"}>
-                {marketingLive ? "View applications" : "Upload resume"}
+              <Link href={marketingLive ? "/applications" : "/resources"}>
+                {marketingLive ? "View applications" : "View resources"}
               </Link>
             </Button>
           </div>
@@ -496,12 +501,12 @@ export function CandidateDashboard({
               </Card>
             </Link>
 
-            <Link href="/applications">
+            <Link href="/interview-details">
               <Card variant="glass" className="p-5 flex items-center justify-between bg-white border border-border-strong/50 shadow-xs hover:border-brand-500/40 transition-colors h-full">
                 <div>
-                  <div className="text-xs text-text-muted font-medium">In interview process</div>
-                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.inInterviewProcess}</div>
-                  <div className="text-[10px] text-text-muted font-semibold mt-1">Active interview stages</div>
+                  <div className="text-xs text-text-muted font-medium">Interviews attended</div>
+                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.interviewsAttended}</div>
+                  <div className="text-[10px] text-text-muted font-semibold mt-1">{stats.upcomingInterviewCount} upcoming</div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-brand-500/10 flex items-center justify-center text-brand-500 border border-brand-500/10">
                   <Users size={18} />
@@ -509,12 +514,11 @@ export function CandidateDashboard({
               </Card>
             </Link>
 
-            <Link href="/upcoming">
+            <Link href="/assessments">
               <Card variant="glass" className="p-5 flex items-center justify-between bg-white border border-border-strong/50 shadow-xs hover:border-brand-500/40 transition-colors h-full">
                 <div>
-                  <div className="text-xs text-text-muted font-medium">Upcoming this month</div>
-                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.upcomingThisMonth}</div>
-                  <div className="text-[10px] text-text-muted font-semibold mt-1">Scheduled events</div>
+                  <div className="text-xs text-text-muted font-medium">Assessments completed</div>
+                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.assessmentsCompleted}</div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 border border-purple-500/10">
                   <ClipboardCheck size={18} />
@@ -526,20 +530,6 @@ export function CandidateDashboard({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="flex flex-col gap-6">
               <RecruiterCard recruiter={recruiter} candidateId={candidateId} />
-              <Card variant="glass" className="rounded-2xl border border-border-strong/50 shadow-xs p-5 bg-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center text-brand-500 border border-brand-500/10">
-                    <Headphones size={16} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-text-primary">Need Help?</h4>
-                    <p className="text-[10px] text-text-muted">Message your recruiter for support.</p>
-                  </div>
-                </div>
-                <Link href="/messages" className="text-[11px] font-semibold text-brand-500 hover:underline block mt-3">
-                  Open messages →
-                </Link>
-              </Card>
             </div>
 
             <div>

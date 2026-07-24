@@ -17,6 +17,11 @@ import {
 } from "@/lib/db/queries/shared/trainings";
 import { getPasswordChangeHistory } from "@/lib/db/queries/candidate/dashboard";
 import { CandidateDetailPage } from "@/components/admin/CandidateDetailPage";
+import { getLatestCandidateInvite } from "@/lib/services/candidate-invites";
+import { getRecruiterAssignmentHistory } from "@/lib/services/recruiter-assignments";
+import { getMarketingReadiness } from "@/lib/services/candidate-journey";
+import { getCandidateJourneyHistoryForStaff } from "@/lib/db/queries/admin/assignments";
+import { resolveAvatarUrl } from "@/lib/storage/avatars";
 
 const VALID_TABS = [
   "Profile",
@@ -50,8 +55,19 @@ export default async function AdminCandidateDetailPage({
   // Mark read
   await markConversationMessagesRead(candidate.userId, session.userId);
 
-  const [recruiters, applications, documents, trainings, trainingCatalog, messages, passwordHistory] =
-    await Promise.all([
+  const [
+    recruiters,
+    applications,
+    documents,
+    trainings,
+    trainingCatalog,
+    messages,
+    passwordHistory,
+    latestInvite,
+    assignmentHistory,
+    journeyHistory,
+    marketingReadiness,
+  ] = await Promise.all([
       getRecruiters(),
       getApplicationsByCandidateId(id),
       getDocumentsByCandidateId(id),
@@ -59,6 +75,10 @@ export default async function AdminCandidateDetailPage({
       getTrainingCatalog(),
       getConversationMessages(candidate.userId, session.userId),
       getPasswordChangeHistory(candidate.userId),
+      getLatestCandidateInvite(candidate.id),
+      getRecruiterAssignmentHistory(candidate.id),
+      getCandidateJourneyHistoryForStaff(candidate.id),
+      getMarketingReadiness(candidate.id),
     ]);
 
   const mappedMessages = messages.map((m) => ({
@@ -77,7 +97,10 @@ export default async function AdminCandidateDetailPage({
 
   return (
     <CandidateDetailPage
-      candidate={candidate}
+      candidate={{
+        ...candidate,
+        avatarUrl: await resolveAvatarUrl(candidate.avatarPath),
+      }}
       recruiters={recruiters}
       applications={applications}
       documents={documents}
@@ -85,6 +108,11 @@ export default async function AdminCandidateDetailPage({
       trainingCatalog={trainingCatalog}
       messages={mappedMessages}
       passwordHistory={passwordHistory}
+      latestInvite={latestInvite}
+      assignmentHistory={assignmentHistory}
+      journeyHistory={journeyHistory}
+      marketingReadiness={marketingReadiness}
+      canManageInvites={scope.seesAllCandidates}
       canReassignRecruiter={scope.seesAllCandidates}
       initialTab={resolvedTab}
     />

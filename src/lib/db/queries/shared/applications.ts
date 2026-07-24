@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { applications } from "@/lib/db/schema";
 
@@ -10,11 +10,31 @@ export async function getApplicationsByCandidateId(candidateId: string) {
     .orderBy(desc(applications.dateApplied));
 }
 
+export async function getCandidateVisibleApplicationsByCandidateId(candidateId: string) {
+  return db
+    .select({
+      ...getTableColumns(applications),
+      internalNotes: sql<string | null>`null`,
+    })
+    .from(applications)
+    .where(and(eq(applications.candidateId, candidateId), ne(applications.status, "draft")))
+    .orderBy(desc(applications.dateApplied));
+}
+
 export async function getUpcomingByCandidateId(candidateId: string) {
   return db
-    .select()
+    .select({
+      ...getTableColumns(applications),
+      internalNotes: sql<string | null>`null`,
+    })
     .from(applications)
-    .where(and(eq(applications.candidateId, candidateId), isNotNull(applications.upcomingWhen)))
+    .where(
+      and(
+        eq(applications.candidateId, candidateId),
+        ne(applications.status, "draft"),
+        isNotNull(applications.upcomingWhen),
+      ),
+    )
     .orderBy(applications.upcomingWhen);
 }
 

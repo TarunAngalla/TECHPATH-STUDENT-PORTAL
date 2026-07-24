@@ -19,15 +19,23 @@ export default async function AdminDashboardPage() {
   return (
     <AdminDashboard
       staffName={staffDisplayName(session.email)}
+      staffRole={scope.role}
       portalLabel={staffPortalSubtitle(scope.role)}
       newLeads={stats.newLeads}
+      newLeadsTrend={stats.newLeadsTrend}
       consultations={stats.consultations}
+      consultationsTrend={stats.consultationsTrend}
       activeCandidates={stats.activeCandidates}
-      marketingLive={stats.marketingLive}
+      activeCandidatesTrend={stats.activeCandidatesTrend}
+      ndasPending={stats.ndasPending}
+      ndasPendingTrend={stats.ndasPendingTrend}
       interviewsThisWeek={stats.interviewsThisWeek}
-      interviewsInProgress={stats.interviewsInProgress}
+      interviewsThisWeekTrend={stats.interviewsThisWeekTrend}
       recruitersAssigned={stats.recruitersAssigned}
+      recruitersAssignedTrend={stats.recruitersAssignedTrend}
+      marketingLiveTrend={stats.marketingLiveTrend}
       unreadMessages={stats.unreadMessages}
+      marketingLiveZeroApps={stats.marketingLiveZeroApps}
       periodLabel={stats.periodLabel}
       funnel={stats.funnel}
       recentAudit={stats.recentAudit}

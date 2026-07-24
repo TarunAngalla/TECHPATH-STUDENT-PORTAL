@@ -1,9 +1,7 @@
-CREATE TABLE message_reads (
-  message_id   UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  candidate_id UUID NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
-  read_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+CREATE TABLE IF NOT EXISTS message_reads (
+  message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  read_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (message_id, user_id)
 );
-
-CREATE INDEX idx_message_reads_user ON message_reads(user_id, candidate_id);
+CREATE INDEX IF NOT EXISTS idx_message_reads_user ON message_reads(user_id);

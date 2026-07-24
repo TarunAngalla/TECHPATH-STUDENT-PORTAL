@@ -51,6 +51,7 @@ export function CandidateAnnouncementsFeed({
           {announcements.map((a) => (
             <StaggerItem key={a.id}>
               <AnnouncementCard
+                id={a.id}
                 title={a.title}
                 body={a.body}
                 createdAt={a.createdAt}

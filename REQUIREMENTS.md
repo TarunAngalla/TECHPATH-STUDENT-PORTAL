@@ -1,3 +1,9 @@
+# CLIENT-ALIGNED OVERRIDE — AUTHORITATIVE
+
+The latest approved client workflow and screens supersede conflicting statements in the legacy specification below. TechPath is a private candidate marketing and placement-progress portal with **admin, recruiter, and candidate** roles. Approved candidates complete secure account setup and the active NDA before full portal access. Candidate business information is view-only by default; staff own verified progress, application, interview, assessment, training, and document updates. Official offer letters, payroll, timesheets, and employment compliance remain on Radxsys. See `docs/CLIENT_ALIGNED_SCOPE.md` and `docs/ROLE_PERMISSION_MATRIX.md`.
+
+---
+
 # The Tech Path — Candidate & Admin Portal: Requirements
 
 ## 1. What this is
@@ -9,7 +15,7 @@ A staffing/placement platform for OPT and STEM OPT candidates, consisting of **t
 
 The **existing public marketing site** (thetechpath.com) is not part of this build — it stays as-is, except it needs one new button: **"Candidate Portal"**, linking to the candidate portal's login page.
 
-There is **no NDA flow in this system**. NDA handling is external / out of scope. Do not build NDA gating, e-signature integration, or NDA document tracking.
+An **NDA access gate is required** after secure account setup and before full candidate portal access. Phase 3 implements a typed-legal-name provider behind the `NdaSigningProvider` interface, with consent, timestamp, IP/user-agent evidence, immutable template and PDF hashes, private PDF storage, and candidate email confirmation. Client/legal approval of this signing method remains a production-release requirement; an external e-signature adapter can replace it without changing the workflow state machine.
 
 ---
 
@@ -22,7 +28,7 @@ Every piece of data a candidate sees must be the exact same record an admin edit
 - An `applications` row is edited by admin (status dropdown, comment field, interview scheduling fields) and read by the candidate on their own Applications table. Same row, same fields.
 - There is **no separate "interviews" table** and **no separate "assessments" table**. Both concepts collapsed into the `applications.status` field plus a small set of `upcoming_*` fields on the same row (see schema). This was a deliberate simplification after early prototyping showed a disconnected interviews/assessments model would drift out of sync with the status field.
 - The candidate's "Upcoming" page is a **derived, filtered, sorted view** of applications that have `upcoming` data — not its own dataset.
-- Comments on an application are a **single plain saved text field**, editable by both sides — explicitly **not** a chat thread. (General recruiter↔candidate conversation that isn't tied to one job lives separately in `messages`.)
+- Comments on an application are a **single plain saved text field**, editable by authorized staff and read-only for candidates by default — explicitly **not** a chat thread. (General recruiter↔candidate conversation that isn't tied to one job lives separately in `messages`.)
 
 If a future feature request would create a second place to store or edit something that already lives on `applications`, `candidates`, or `users` — push back and fold it into the existing record instead.
 
@@ -30,12 +36,12 @@ If a future feature request would create a second place to store or edit somethi
 
 ## 3. Auth flow (candidate side)
 
-1. Candidate never self-registers. Admin creates the account (see §5, Leads Inbox → Approve).
-2. **Login** — email + password given by admin.
-3. **Forced password reset** — shown only when `users.first_login = true`. After saving, `first_login` flips to `false` and a `password_change_log` row is written with method `forced_first_login`.
-4. Straight to **Dashboard**. No NDA step, no intermediate gate.
-5. Candidates can change their password again later from Account Settings (method `self_service`, logged the same way).
-6. Every password change of every kind — forced, self-service, or admin-triggered reset — must write to `password_change_log`, because **admin needs to see and audit password-change history per candidate.** This is a hard requirement, not a nice-to-have.
+1. Candidate never self-registers. A public visitor submits an enquiry; admin reviews the consultation and approves or rejects portal access.
+2. On approval, admin creates the candidate account. The system creates an unusable placeholder credential and sends an expiring, single-use secure setup link. Temporary passwords must never be displayed or emailed.
+3. Candidate opens `/setup-account?token=...`, chooses a password, and the token is atomically consumed. `password_change_log.method = secure_invite` is written and `session_version` increments.
+4. Route through the centralized access evaluator: account setup first, then active NDA signing, then **Dashboard**.
+5. Candidates can change their password again later from Account Settings (`self_service`). Legacy pre-invitation accounts may still use the forced-reset route until migrated.
+6. Every successful password change must write to `password_change_log`, because admin needs an auditable password-change history per candidate.
 
 ## 4. Candidate Portal — pages
 
@@ -132,10 +138,11 @@ Hero + 4 stat cards (New leads / Active candidates / Interviews this week / Unre
 ### Leads Inbox
 Table/list of enquiries and consultation bookings. Status: `New → Contacted → Qualified → Rejected → Converted` (a "Converted" lead becomes a real candidate and should disappear from this default view). Approve (green check) advances status; Reject (red X) rejects. Internal notes field per lead (plain saved text, same pattern as application comments).
 
-**When a lead reaches Qualified**, show an inline **"Create candidate portal account"** panel:
-- Login email (locked to the lead's email)
-- Auto-generated temporary password with a regenerate button
-- "Send registration email" button — on send, creates the `users`/`candidates` rows, flips lead status to Converted, and (in the real backend) emails the credentials
+**When an enquiry reaches Qualified**, show an inline **"Create candidate portal account"** panel:
+- Login email locked to the enquiry email
+- Optional initial recruiter assignment
+- "Create account and send invite" creates the `users`/`candidates` rows, flips the enquiry to Converted, revokes previous active invitations, and sends an expiring single-use account-setup link
+- No temporary password is generated for staff, displayed in the UI, written to logs, or emailed
 
 ### Candidates (list)
 Table: candidate name+avatar, recruiter, journey stage, application count, last activity. Row click → Candidate Detail.
@@ -148,7 +155,7 @@ The busiest page. Header has recruiter-reassignment and journey-stage dropdowns 
 - **Documents** — list + upload
 - **Trainings** — assign/mark complete
 - **Messages** — admin's side of the exact same thread the candidate sees, with a reply box
-- **Account & Security** — password last-changed + full change history log + "Force password reset" button
+- **Account & Security** — account state, invitation status, resend/revoke invitation controls for admins, and full password-change history
 
 ### Trainings Library
 Shared catalog of modules (video/pdf), assigned per-candidate from here — modules are not recreated per candidate.
@@ -182,8 +189,38 @@ Recruiter/admin accounts, role assignment (see open question below).
 
 ## 8. Non-goals (keep the product simple — these were deliberately cut)
 
-- No NDA flow anywhere in this system
+- NDA template/signature tracking and portal gating are required; the typed-name provider is implemented, but production use still requires client/legal approval of the signature method and agreement text
 - No separate Interviews page or Assessments page as distinct data models
 - No comment/chat thread on individual applications — plain saved text only
 - No offer letter, payroll, or timesheet functionality (that's radxsys.com's job)
-- No public candidate self-registration
+- No automatic public candidate account creation; public enquiries require admin approval and a secure invitation
+
+## Phase 4 operational requirements
+
+- Recruiter assignments must be historical and auditable; `candidates.recruiter_id` is only the current assignment pointer.
+- Only one active recruiter assignment may exist per candidate.
+- Admins manage assignment and recruiter capacity. Recruiters access only their current assigned candidates.
+- Candidate journey dates and notes must come from `candidate_journey_events`, not synthetic dates.
+- Candidate marketing has an explicit lifecycle: `not_ready`, `ready`, `live`, `paused`, `completed`.
+- Marketing launch requires an active candidate account/NDA, active recruiter assignment, resume on file, and candidate contact details.
+- Recruiter contact details shown to candidates must come from staff profile data.
+
+## Phase 5 — Verified application activity
+
+- Staff records each candidate-company-role submission as one application.
+- Interview rounds and assessments are child activity events; the parent application stores only the current summary.
+- Status changes and history writes occur in one transaction.
+- Recruiters may manage only applications for assigned candidates; admins have organization-wide access.
+- Candidates have view-only access to their own candidate-visible application, interview, and assessment data.
+- Internal notes are never serialized to candidate pages.
+- Dashboard metrics count real completed/scheduled events rather than inferring history from one current status.
+
+## Phase 6 — Client-aligned portal experience
+
+- Admin primary modules are Dashboard, Enquiries, Consultations, Candidates, NDA Signatures, Recruiter Assignments, Marketing Progress, Applications, Interviews, Assessments, Announcements, Reports, and Settings.
+- Recruiters use a scoped workspace and never receive the admin enquiry, NDA, assignment-control, team, or organization-report navigation.
+- Candidate primary navigation is Dashboard, My Progress, Trainings, Interview Details, Assessments, Announcements, Resources, and Account Settings.
+- Candidate applications, messages, and help remain available as contextual or secondary routes without expanding candidate mutation permissions.
+- Staff interview and assessment screens are views over `application_events`, not separate duplicate domain models.
+- The candidate Resources screen uses authorized private documents and clearly keeps offer letters, payroll, timesheets, and compliance in Radxsys.
+- No screenshot count, recruiter identity, company activity, or progress value may be hardcoded.

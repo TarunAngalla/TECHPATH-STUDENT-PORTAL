@@ -1,0 +1,5 @@
+---
+description: Finish TechPath Phase 1 with code-only execution
+alwaysApply: false
+---
+Write code directly and minimize chat output. Do not explain architecture or restate requirements. Preserve existing UI and stack. Run db:smoke, typecheck, lint, and build. Final output must contain only CHANGED, DB_SMOKE, TYPECHECK, LINT, BUILD, and BLOCKER lines.

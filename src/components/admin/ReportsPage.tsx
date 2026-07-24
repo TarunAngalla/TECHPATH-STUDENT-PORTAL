@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Clock, Inbox, MessageCircle, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { ReportExportPanel } from "@/components/admin/ReportExportPanel";
 
 type ReportsProps = {
   newLeads: number;
@@ -122,6 +123,8 @@ export function ReportsPage({
 
   return (
     <div className="space-y-6">
+      <ReportExportPanel />
+
       <div className="flex flex-wrap gap-4">
         {STAT_CARDS.map((stat) => (
           <ReportStatCard
@@ -161,9 +164,9 @@ export function ReportsPage({
             <CardTitle className="text-base font-bold text-text-primary">Candidate Summary</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[min(28rem,50vh)] overflow-y-auto">
               <table className="w-full text-left text-xs" aria-label="Candidate summaries">
-                <thead>
+                <thead className="sticky top-0 bg-white z-[1]">
                   <tr className="border-b border-border-strong/45">
                     <th scope="col" className="pb-2.5 font-bold text-text-muted">Name</th>
                     <th scope="col" className="pb-2.5 font-bold text-text-muted">Journey Stage</th>

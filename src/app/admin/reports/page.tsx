@@ -1,22 +1,92 @@
-import { requireStaffAuth } from "@/lib/auth/guards";
-import { getStaffScope } from "@/lib/auth/staff-scope";
-import { getReportsData } from "@/lib/db/queries/admin/reports";
-import { ReportsPage } from "@/components/admin/ReportsPage";
+import { requireAdminAuth } from "@/lib/auth/guards";
+import Link from "next/link";
+import { FileText, TrendingUp, Users, Inbox, ArrowRight } from "lucide-react";
+import { Card } from "@/components/ui/Card";
+import { ReportExportPanel } from "@/components/admin/ReportExportPanel";
+
+const REPORTS = [
+  {
+    href: "/admin/reports/enquiry-source",
+    title: "Enquiry Source Report",
+    description:
+      "Analyze enquiries by source and channel. Discover which marketing efforts yield the highest conversion to portal access.",
+    icon: FileText,
+    color: "text-blue-600",
+    bg: "bg-blue-50 border-blue-100",
+  },
+  {
+    href: "/admin/reports/conversion-funnel",
+    title: "Conversion Funnel Report",
+    description:
+      "Track conversion across all pipeline stages. Identify drop-off points from initial enquiry to final placement.",
+    icon: TrendingUp,
+    color: "text-green-600",
+    bg: "bg-green-50 border-green-100",
+  },
+  {
+    href: "/admin/reports/recruiter-performance",
+    title: "Recruiter Performance Report",
+    description:
+      "Evaluate recruiter assignments and outcomes. Track candidates assigned, applications submitted, and interviews scheduled.",
+    icon: Users,
+    color: "text-purple-600",
+    bg: "bg-purple-50 border-purple-100",
+  },
+  {
+    href: "/admin/reports/marketing-activity",
+    title: "Marketing Activity Report",
+    description:
+      "Comprehensive overview of applications, interviews, and assessments. Monitor the velocity of candidate marketing.",
+    icon: Inbox,
+    color: "text-orange-600",
+    bg: "bg-orange-50 border-orange-100",
+  },
+];
 
 export default async function AdminReportsPage() {
-  const session = await requireStaffAuth();
-  const scope = getStaffScope(session);
-  const data = await getReportsData(scope);
+  await requireAdminAuth();
 
   return (
-    <ReportsPage
-      newLeads={data.newLeads}
-      activeCandidates={data.activeCandidates}
-      interviewsThisWeek={data.interviewsThisWeek}
-      unreadMessages={data.unreadMessages}
-      funnel={data.funnel}
-      workload={data.workload}
-      candidates={data.candidates}
-    />
+    <div className="max-w-6xl mx-auto space-y-6 pb-10 min-w-0 w-full">
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-text-primary">Analytics & Reports</h1>
+        <p className="text-sm text-text-muted mt-1">
+          Deep dive into platform metrics, conversion rates, and staff performance.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {REPORTS.map((report) => (
+          <Link key={report.href} href={report.href} className="group min-w-0">
+            <Card
+              variant="glass"
+              className="h-full bg-white border border-border-strong/50 shadow-xs hover:shadow-md transition-all duration-200 hover:border-brand-300"
+            >
+              <div className="p-5 flex flex-col h-full min-w-0">
+                <div className="flex items-start justify-between mb-4 gap-3">
+                  <div
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center border flex-shrink-0 ${report.bg}`}
+                  >
+                    <report.icon size={22} className={report.color} />
+                  </div>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-surface text-text-muted group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors flex-shrink-0">
+                    <ArrowRight size={16} />
+                  </div>
+                </div>
+                <h3 className="text-base font-bold text-text-primary mb-2 group-hover:text-brand-600 transition-colors">
+                  {report.title}
+                </h3>
+                <p className="text-sm text-text-muted leading-relaxed flex-1">{report.description}</p>
+              </div>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      <div className="pt-6 border-t border-border-subtle">
+        <h2 className="text-lg font-bold text-text-primary mb-4">Bulk Data Export</h2>
+        <ReportExportPanel />
+      </div>
+    </div>
   );
 }

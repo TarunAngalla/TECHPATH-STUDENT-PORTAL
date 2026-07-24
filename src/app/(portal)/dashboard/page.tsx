@@ -29,6 +29,7 @@ export default async function DashboardPage() {
       candidateId={candidate.id}
       candidateName={candidate.fullName}
       journeyStage={candidate.journeyStage}
+      marketingStatus={candidate.marketingStatus}
       profileLastUpdated={profileLastUpdated || "—"}
       stats={stats}
       recruiter={recruiter}

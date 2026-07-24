@@ -1,0 +1,1 @@
+import postgres from "postgres"; async function main() { const sql = postgres(process.env.DATABASE_URL); await sql`ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "consultation_meeting_link" text;`; console.log("Column added"); process.exit(0); } main();

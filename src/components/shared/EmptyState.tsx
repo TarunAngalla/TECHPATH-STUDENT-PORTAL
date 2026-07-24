@@ -1,4 +1,4 @@
-export function EmptyState({ title, note }: { title: string; note: string }) {
+export function EmptyState({ title, note }: { title: string; note?: string }) {
   return (
     <div className="text-center py-8">
       <svg width="80" height="64" viewBox="0 0 80 64" className="mx-auto mb-4" aria-hidden="true">
@@ -15,7 +15,7 @@ export function EmptyState({ title, note }: { title: string; note: string }) {
         />
       </svg>
       <h3 className="text-sm font-medium mb-1 text-text-primary">{title}</h3>
-      <p className="text-xs max-w-sm mx-auto text-text-muted">{note}</p>
+      {note ? <p className="text-xs max-w-sm mx-auto text-text-muted">{note}</p> : null}
     </div>
   );
 }

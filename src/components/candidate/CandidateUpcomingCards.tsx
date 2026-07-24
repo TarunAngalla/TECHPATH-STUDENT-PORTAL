@@ -69,15 +69,15 @@ export function CandidateUpcomingCards({ applications }: { applications: Applica
 
   return (
     <section aria-labelledby="upcoming-heading">
-      <p id="upcoming-heading" className="text-xs mb-5 text-text-muted font-medium">
-        Everything currently scheduled, across all your applications, in date order.
-      </p>
+      <h2 id="upcoming-heading" className="sr-only">
+        Upcoming
+      </h2>
 
       {upcoming.length === 0 ? (
         <Card variant="glass" className="overflow-hidden bg-white border border-border-strong/50 shadow-xs rounded-2xl">
           <EmptyState
-            title="Nothing scheduled right now"
-            note="Once your recruiter books an interview or HR call, it will appear here automatically."
+            title="Nothing scheduled"
+            note="Booked interviews and calls show up here."
           />
         </Card>
       ) : (

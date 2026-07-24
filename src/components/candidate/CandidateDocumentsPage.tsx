@@ -48,10 +48,8 @@ function ResumeUploadZone() {
     <Card variant="glass" className="p-6 mb-6 bg-white border border-border-strong/50 shadow-xs rounded-2xl">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h3 className="text-sm font-bold text-text-primary leading-tight">Upload your resume</h3>
-          <p className="text-xs text-text-muted mt-1.5 leading-relaxed font-medium">
-            Upload your latest resume (PDF, DOC, or DOCX up to 5MB) for recruiter marketing.
-          </p>
+          <h3 className="text-sm font-bold text-text-primary leading-tight">Upload resume</h3>
+          <p className="text-xs text-text-muted mt-1.5">PDF, DOC, or DOCX · max 5 MB</p>
         </div>
         <div className="flex-shrink-0">
           <input
@@ -79,8 +77,12 @@ function ResumeUploadZone() {
 
 export function CandidateDocumentsPage({
   sections,
+  allowResumeUpload = false,
+  showBoundaryNote = true,
 }: {
   sections: { title: string; documents: Document[] }[];
+  allowResumeUpload?: boolean;
+  showBoundaryNote?: boolean;
 }) {
   const hasDocuments = sections.some((s) => s.documents.length > 0);
 
@@ -90,7 +92,7 @@ export function CandidateDocumentsPage({
         Documents
       </h2>
 
-      <ResumeUploadZone />
+      {allowResumeUpload && <ResumeUploadZone />}
 
       {!hasDocuments ? (
         <Card variant="glass" className="overflow-hidden bg-white border border-border-strong/50 shadow-xs rounded-2xl">
@@ -119,7 +121,7 @@ export function CandidateDocumentsPage({
                       <DocumentRow
                         name={doc.name}
                         subtitle={`${DOCUMENT_CATEGORY_LABELS[doc.category as DocumentCategory]} · ${formatDate(doc.uploadedAt)}`}
-                        href={doc.fileUrl}
+                        href={`/api/documents/${doc.id}/download`}
                         category={doc.category as DocumentCategory}
                         isFirst={i === 0}
                       />
@@ -132,14 +134,16 @@ export function CandidateDocumentsPage({
         </div>
       )}
 
-      <div
-        className="mt-8 px-4 py-3.5 rounded-xl text-xs flex items-start gap-3 bg-brand-50/15 border border-brand-500/20 text-text-muted font-semibold leading-relaxed"
-        role="note"
-      >
-        <ShieldCheck size={16} className="text-brand-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
-        All official offer letters, payroll, timesheets, and compliance documents are managed
-        securely on radxsys.com.
-      </div>
+      {showBoundaryNote && (
+        <div
+          className="mt-8 px-4 py-3.5 rounded-xl text-xs flex items-start gap-3 bg-brand-50/15 border border-brand-500/20 text-text-muted font-semibold leading-relaxed"
+          role="note"
+        >
+          <ShieldCheck size={16} className="text-brand-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
+          All official offer letters, payroll, timesheets, and compliance documents are managed
+          securely on radxsys.com.
+        </div>
+      )}
     </section>
   );
 }

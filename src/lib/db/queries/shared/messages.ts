@@ -1,9 +1,10 @@
-import { and, eq, or, desc } from "drizzle-orm";
+import { and, eq, or, desc, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { messageReads, messages, users, candidates } from "@/lib/db/schema";
+import { resolveAvatarUrl } from "@/lib/storage/avatars";
 
 export async function getConversationMessages(userAId: string, userBId: string) {
-  return db
+  const rows = await db
     .select()
     .from(messages)
     .where(
@@ -13,13 +14,51 @@ export async function getConversationMessages(userAId: string, userBId: string) 
       ),
     )
     .orderBy(messages.sentAt);
+
+  if (rows.length === 0) return [];
+
+  const reads = await db
+    .select({
+      messageId: messageReads.messageId,
+      userId: messageReads.userId,
+      readAt: messageReads.readAt,
+    })
+    .from(messageReads)
+    .where(
+      inArray(
+        messageReads.messageId,
+        rows.map((r) => r.id),
+      ),
+    );
+
+  const seenByReceiver = new Map<string, Date>();
+  for (const row of rows) {
+    const read = reads.find((r) => r.messageId === row.id && r.userId === row.receiverId);
+    if (read) seenByReceiver.set(row.id, read.readAt);
+  }
+
+  return rows.map((m) => ({
+    ...m,
+    /** When the receiver opened/read this message */
+    seenAt: seenByReceiver.get(m.id) ?? null,
+  }));
 }
 
 export async function markConversationMessagesRead(partnerId: string, currentUserId: string) {
-  const unread = await db
+  const received = await db
     .select({ id: messages.id })
     .from(messages)
     .where(and(eq(messages.senderId, partnerId), eq(messages.receiverId, currentUserId)));
+
+  if (received.length === 0) return 0;
+
+  const read = await db
+    .select({ messageId: messageReads.messageId })
+    .from(messageReads)
+    .where(eq(messageReads.userId, currentUserId));
+
+  const readSet = new Set(read.map((r) => r.messageId));
+  const unread = received.filter((m) => !readSet.has(m.id));
 
   for (const msg of unread) {
     await db
@@ -27,6 +66,8 @@ export async function markConversationMessagesRead(partnerId: string, currentUse
       .values({ messageId: msg.id, userId: currentUserId })
       .onConflictDoNothing();
   }
+
+  return unread.length;
 }
 
 export async function getUnreadMessageCount(currentUserId: string, partnerId?: string) {
@@ -51,7 +92,13 @@ export async function getUnreadMessageCount(currentUserId: string, partnerId?: s
 }
 
 export async function getChatThreads(currentUserId: string, currentUserRole: string) {
-  const partnerUsers: { id: string; email: string; role: string; fullName?: string }[] = [];
+  const partnerUsers: {
+    id: string;
+    email: string;
+    role: string;
+    fullName?: string;
+    avatarPath?: string | null;
+  }[] = [];
 
   if (currentUserRole === "candidate") {
     // 1. Get the admin
@@ -100,6 +147,7 @@ export async function getChatThreads(currentUserId: string, currentUserRole: str
         email: users.email,
         role: users.role,
         fullName: candidates.fullName,
+        avatarPath: candidates.avatarPath,
       })
       .from(candidates)
       .innerJoin(users, eq(users.id, candidates.userId))
@@ -127,6 +175,7 @@ export async function getChatThreads(currentUserId: string, currentUserRole: str
         email: users.email,
         role: users.role,
         fullName: candidates.fullName,
+        avatarPath: candidates.avatarPath,
       })
       .from(candidates)
       .innerJoin(users, eq(users.id, candidates.userId));
@@ -155,6 +204,7 @@ export async function getChatThreads(currentUserId: string, currentUserRole: str
       fullName: p.fullName || p.email,
       email: p.email,
       role: p.role,
+      avatarUrl: await resolveAvatarUrl(p.avatarPath),
       latestMessage: latest
         ? {
             body: latest.body,
