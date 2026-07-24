@@ -8,8 +8,7 @@ const REPORTS = [
   {
     href: "/admin/reports/enquiry-source",
     title: "Enquiry Source Report",
-    description:
-      "Analyze enquiries by source and channel. Discover which marketing efforts yield the highest conversion to portal access.",
+    description: "Volume and conversion by source.",
     icon: FileText,
     color: "text-blue-600",
     bg: "bg-blue-50 border-blue-100",
@@ -17,8 +16,7 @@ const REPORTS = [
   {
     href: "/admin/reports/conversion-funnel",
     title: "Conversion Funnel Report",
-    description:
-      "Track conversion across all pipeline stages. Identify drop-off points from initial enquiry to final placement.",
+    description: "Pipeline stages and drop-off.",
     icon: TrendingUp,
     color: "text-green-600",
     bg: "bg-green-50 border-green-100",
@@ -26,8 +24,7 @@ const REPORTS = [
   {
     href: "/admin/reports/recruiter-performance",
     title: "Recruiter Performance Report",
-    description:
-      "Evaluate recruiter assignments and outcomes. Track candidates assigned, applications submitted, and interviews scheduled.",
+    description: "Assignments, apps, and interviews.",
     icon: Users,
     color: "text-purple-600",
     bg: "bg-purple-50 border-purple-100",
@@ -35,8 +32,7 @@ const REPORTS = [
   {
     href: "/admin/reports/marketing-activity",
     title: "Marketing Activity Report",
-    description:
-      "Comprehensive overview of applications, interviews, and assessments. Monitor the velocity of candidate marketing.",
+    description: "Placement activity by candidate.",
     icon: Inbox,
     color: "text-orange-600",
     bg: "bg-orange-50 border-orange-100",
@@ -50,9 +46,7 @@ export default async function AdminReportsPage() {
     <div className="max-w-6xl mx-auto space-y-6 pb-10 min-w-0 w-full">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-text-primary">Analytics & Reports</h1>
-        <p className="text-sm text-text-muted mt-1">
-          Deep dive into platform metrics, conversion rates, and staff performance.
-        </p>
+        <p className="text-sm text-text-muted mt-1">Quick reports for pipeline and performance.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
