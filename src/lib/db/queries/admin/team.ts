@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { staffProfiles, users } from "@/lib/db/schema";
 import { getDashboardStats } from "./dashboard";
@@ -26,7 +26,7 @@ export async function getStaffUsers() {
     })
     .from(users)
     .leftJoin(staffProfiles, eq(staffProfiles.userId, users.id))
-    .where(inArray(users.role, ["recruiter", "admin"]))
+    .where(and(inArray(users.role, ["recruiter", "admin"]), ne(users.accountState, "suspended")))
     .orderBy(users.email);
 
   return rows.map((row) => ({

@@ -142,15 +142,16 @@ export function RequestAccessForm() {
 
           <div>
             <label htmlFor="request-experience" className="block text-[10px] font-bold uppercase tracking-wider mb-1.5 text-slate-600">
-              Experience summary
+              Experience years
             </label>
-            <Textarea
+            <Input
               id="request-experience"
               name="experienceSummary"
-              maxLength={1200}
-              rows={2}
-              placeholder="Briefly describe your experience and primary skills."
-              className="text-sm py-2.5 border border-slate-200 bg-slate-50/50 shadow-xs focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 focus:bg-white rounded-xl min-h-0"
+              type="text"
+              inputMode="decimal"
+              maxLength={40}
+              placeholder="Example: 3"
+              className="h-10 text-sm border border-slate-200 bg-slate-50/50 shadow-xs focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 focus:bg-white rounded-xl"
             />
             <FieldError errors={state.fieldErrors?.experienceSummary} />
           </div>
@@ -185,9 +186,17 @@ export function RequestAccessForm() {
           <FieldError errors={state.fieldErrors?.consent} />
 
           {state.error && (
-            <p className="text-xs font-semibold text-danger" role="alert">
-              {state.error}
-            </p>
+            <div className="rounded-xl border border-danger/20 bg-danger-soft/40 px-3 py-2.5" role="alert">
+              <p className="text-xs font-semibold text-danger">{state.error}</p>
+              {state.code === "existing_account" && (
+                <p className="mt-1.5 text-[11px] text-slate-600">
+                  Already have access?{" "}
+                  <Link href="/login" className="font-semibold text-slate-900 hover:underline">
+                    Sign in here
+                  </Link>
+                </p>
+              )}
+            </div>
           )}
 
           <Button
@@ -195,7 +204,7 @@ export function RequestAccessForm() {
             variant="ghost"
             disabled={pending}
             loading={pending}
-            className="w-full text-[13px] font-bold bg-black text-white shadow-xl hover:bg-slate-800 hover:text-white hover:shadow-2xl transition-all py-3 rounded-xl flex items-center justify-center gap-2 tracking-wide mt-1"
+            className="w-full text-[13px] font-bold bg-black text-white shadow-xl hover:bg-slate-800 hover:text-white hover:shadow-2xl transition-all py-3 rounded-xl flex items-center justify-center gap-2 tracking-wide mt-1 disabled:opacity-60 disabled:pointer-events-none"
           >
             <Send size={14} aria-hidden="true" />
             {pending ? "Submitting…" : "Submit request"}

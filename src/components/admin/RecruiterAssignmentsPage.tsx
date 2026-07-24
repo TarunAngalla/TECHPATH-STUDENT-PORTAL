@@ -9,7 +9,7 @@ import { assignRecruiterAction } from "@/lib/actions/recruiter-assignments";
 import { MARKETING_STATUS_LABELS } from "@/lib/constants/marketing";
 import { JOURNEY_STEPS } from "@/lib/constants/journey";
 import { formatDate } from "@/lib/utils/dates";
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Select } from "@/components/ui";
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Select, Avatar } from "@/components/ui";
 import { AdminActionDialog } from "@/components/admin/AdminActionDialog";
 
 export function RecruiterAssignmentsPage({
@@ -35,6 +35,7 @@ export function RecruiterAssignmentsPage({
     assignmentId: string;
     candidateId: string;
     candidateName: string;
+    avatarUrl?: string | null;
     journeyStage: number;
     marketingStatus: "not_ready" | "ready" | "live" | "paused" | "completed";
     assignedAt: Date;
@@ -73,11 +74,6 @@ export function RecruiterAssignmentsPage({
         <h1 id="assignments-heading" className="text-xl font-bold text-text-primary">
           Recruiter Assignments
         </h1>
-        <p className="mt-1 text-sm text-text-muted">
-          {isAdmin
-            ? "Manage recruiter capacity, assignments, and candidate marketing work queues."
-            : "Your assigned candidates and current marketing workload."}
-        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -200,7 +196,17 @@ export function RecruiterAssignmentsPage({
                 <tbody>
                   {workQueue.map((row) => (
                     <tr key={row.assignmentId} className="border-b border-border-subtle/70">
-                      <td className="py-3 pr-4 font-semibold text-text-primary">{row.candidateName}</td>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2.5 font-semibold text-text-primary">
+                          <Avatar
+                            name={row.candidateName}
+                            src={row.avatarUrl}
+                            size="sm"
+                            className="shadow-xs border border-border-strong/30"
+                          />
+                          {row.candidateName}
+                        </div>
+                      </td>
                       <td className="py-3 pr-4 text-text-muted">{row.recruiterName ?? row.recruiterEmail}</td>
                       <td className="py-3 pr-4 text-text-muted">
                         <span className="inline-flex items-center gap-1">

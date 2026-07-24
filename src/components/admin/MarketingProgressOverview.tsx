@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AlertCircle, BriefcaseBusiness, CalendarCheck, ClipboardCheck, TrendingUp } from "lucide-react";
-import { Badge, Card } from "@/components/ui";
+import { Avatar, Badge, Card } from "@/components/ui";
 import { JOURNEY_STEPS } from "@/lib/constants/journey";
 import { MARKETING_STATUS_LABELS } from "@/lib/constants/marketing";
 import type { MarketingStatus } from "@/lib/db/schema";
@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/utils/dates";
 export type MarketingProgressRow = {
   candidateId: string;
   candidateName: string;
+  avatarUrl?: string | null;
   journeyStage: number;
   marketingStatus: MarketingStatus;
   marketingReadyAt: Date | string | null;
@@ -36,7 +37,7 @@ function latestStatusDate(row: MarketingProgressRow) {
   return row.marketingCompletedAt ?? row.marketingPausedAt ?? row.marketingLiveAt ?? row.marketingReadyAt;
 }
 
-export function MarketingProgressOverview({ rows, scopedToRecruiter }: { rows: MarketingProgressRow[]; scopedToRecruiter: boolean }) {
+export function MarketingProgressOverview({ rows }: { rows: MarketingProgressRow[]; scopedToRecruiter?: boolean }) {
   const live = rows.filter((row) => row.marketingStatus === "live").length;
   const ready = rows.filter((row) => row.marketingStatus === "ready").length;
   const paused = rows.filter((row) => row.marketingStatus === "paused").length;
@@ -44,12 +45,9 @@ export function MarketingProgressOverview({ rows, scopedToRecruiter }: { rows: M
 
   return (
     <section className="grid gap-5" aria-labelledby="marketing-heading">
-      <div>
-        <h2 id="marketing-heading" className="text-xl font-bold text-text-primary">Marketing Progress</h2>
-        <p className="mt-1 text-sm text-text-muted">
-          {scopedToRecruiter ? "Your assigned candidates and verified placement activity." : "Candidate marketing readiness, live activity, and follow-up signals."}
-        </p>
-      </div>
+      <h2 id="marketing-heading" className="text-xl font-bold text-text-primary">
+        Marketing Progress
+      </h2>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
@@ -85,8 +83,23 @@ export function MarketingProgressOverview({ rows, scopedToRecruiter }: { rows: M
                 {rows.map((row) => (
                   <tr key={row.candidateId} className="border-b border-border-subtle last:border-0 hover:bg-surface/40 align-top">
                     <td className="px-4 py-3">
-                      <Link href={`/admin/candidates/${row.candidateId}`} className="text-sm font-semibold text-text-primary hover:text-brand-500">{row.candidateName}</Link>
-                      {row.marketingNotes && <p className="mt-1 max-w-xs text-[11px] text-text-muted line-clamp-2">{row.marketingNotes}</p>}
+                      <Link
+                        href={`/admin/candidates/${row.candidateId}`}
+                        className="flex items-center gap-2.5 text-sm font-semibold text-text-primary hover:text-brand-500"
+                      >
+                        <Avatar
+                          name={row.candidateName}
+                          src={row.avatarUrl}
+                          size="sm"
+                          className="shadow-xs border border-border-strong/30"
+                        />
+                        <span>{row.candidateName}</span>
+                      </Link>
+                      {row.marketingNotes && (
+                        <p className="mt-1 max-w-xs text-[11px] text-text-muted line-clamp-2 pl-10">
+                          {row.marketingNotes}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={statusVariant(row.marketingStatus)}>{MARKETING_STATUS_LABELS[row.marketingStatus]}</Badge>

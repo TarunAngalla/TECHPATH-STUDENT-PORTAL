@@ -36,23 +36,27 @@ function rewriteForPortal(request: NextRequest, portal: "candidate" | "admin") {
   return null;
 }
 
-function redirectWithDeletedSession(request: NextRequest, pathname: string) {
+function redirectTo(request: NextRequest, pathname: string) {
   const url = request.nextUrl.clone();
   url.pathname = pathname;
-  const response = NextResponse.redirect(url);
-  response.cookies.delete("techpath_session");
-  return response;
+  return NextResponse.redirect(url);
 }
 
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
 
+  // Server Actions must receive an untouched RSC response. Auth still runs inside each action.
+  const isServerAction =
+    request.method === "POST" &&
+    (request.headers.has("next-action") || request.headers.has("x-action"));
+  if (isServerAction) {
+    return NextResponse.next();
+  }
+
   // Legacy admin login URL — always use the shared /login page.
   if (pathname === "/admin/login" || pathname.startsWith("/admin/login/")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return redirectTo(request, "/login");
   }
 
   const portal = getPortalFromHost(host, pathname);
@@ -63,18 +67,31 @@ export async function middleware(request: NextRequest) {
   const isLoggedIn = session.isLoggedIn === true;
 
   if (!isLoggedIn && !isPublicPath(pathname, portal)) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    return NextResponse.redirect(loginUrl);
+    return redirectTo(request, "/login");
   }
   if (!isLoggedIn) return response;
 
+  // Keep the session cookie alive while the user is actively browsing.
+  await session.save();
+
+  // Wrong portal for this role: redirect home — do NOT wipe the session.
+  // (Previously visiting /login as staff deleted the cookie and felt like random logouts.)
   if (portal === "candidate" && session.role !== "candidate") {
-    return redirectWithDeletedSession(request, "/login");
+    if (session.role === "admin" || session.role === "recruiter") {
+      if (pathname === "/login" || pathname === "/" || pathname === "/request-access") {
+        return redirectTo(request, "/admin/dashboard");
+      }
+      return redirectTo(request, "/admin/dashboard");
+    }
+    return redirectTo(request, "/login");
   }
   if (portal === "admin" && session.role !== "recruiter" && session.role !== "admin") {
-    return redirectWithDeletedSession(request, "/login");
+    if (session.role === "candidate") {
+      return redirectTo(request, "/dashboard");
+    }
+    return redirectTo(request, "/login");
   }
+  if (!isLoggedIn) return response;
 
   if (portal === "candidate" && session.role === "candidate") {
     const ndaGateEnabled = envFlag("ENABLE_NDA_GATE", false);
@@ -82,19 +99,13 @@ export async function middleware(request: NextRequest) {
     const needsNda = ndaGateEnabled && session.accountState === "nda_pending";
     const suspended = session.accountState === "suspended";
     if (suspended && pathname !== "/account-suspended") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/account-suspended";
-      return NextResponse.redirect(url);
+      return redirectTo(request, "/account-suspended");
     }
     if (needsAccountSetup && !["/reset-password", "/setup-account"].includes(pathname)) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/reset-password";
-      return NextResponse.redirect(url);
+      return redirectTo(request, "/reset-password");
     }
     if (!needsAccountSetup && needsNda && pathname !== "/nda") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/nda";
-      return NextResponse.redirect(url);
+      return redirectTo(request, "/nda");
     }
     if (
       !needsAccountSetup &&
@@ -102,19 +113,19 @@ export async function middleware(request: NextRequest) {
       !suspended &&
       ["/login", "/request-access", "/setup-account", "/reset-password", "/nda", "/account-suspended"].includes(pathname)
     ) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      return redirectTo(request, "/dashboard");
     }
   }
 
   if (portal === "admin" && pathname === "/login") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin/dashboard";
-    return NextResponse.redirect(url);
+    return redirectTo(request, "/admin/dashboard");
   }
 
   return response;
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|api).*)"] };
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|txt|xml)$).*)",
+  ],
+};

@@ -10,6 +10,7 @@ import {
 export type PublicEnquiryActionState = {
   success?: boolean;
   error?: string;
+  code?: "existing_account" | "active_enquiry" | "rejected_cooldown";
   fieldErrors?: Record<string, string[]>;
 };
 
@@ -50,7 +51,13 @@ export async function submitPublicEnquiryAction(
       ...parsed.data,
       clientKey: clientKeyFromHeaders(requestHeaders),
     });
-    if (!result.ok) return { error: result.error };
+    if (!result.ok) {
+      return {
+        error: result.error,
+        code: result.code,
+        fieldErrors: result.code ? { email: [result.error] } : undefined,
+      };
+    }
     return { success: true };
   } catch (error) {
     logger.error("public_enquiry.submission_failed", error);

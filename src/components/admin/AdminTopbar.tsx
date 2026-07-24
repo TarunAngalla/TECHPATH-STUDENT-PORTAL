@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bell, LogOut, MessageCircle, PanelLeft, PanelLeftClose, Search, Settings } from "lucide-react";
 import { adminLogoutAction } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils/cn";
@@ -34,6 +34,28 @@ export function AdminTopbar({
 }) {
   const router = useRouter();
   const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!notifOpen) return;
+
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (target && notifRef.current?.contains(target)) return;
+      setNotifOpen(false);
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setNotifOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [notifOpen]);
 
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-5 sm:px-8 py-4 gap-4 bg-surface-elevated/95 backdrop-blur-md border-b border-border-subtle shadow-xs">
@@ -78,54 +100,70 @@ export function AdminTopbar({
         />
       </form>
 
-      <div className="flex items-center gap-4 flex-shrink-0 relative">
-        <button
-          type="button"
-          onClick={() => setNotifOpen(!notifOpen)}
-          className="relative text-text-muted hover:text-text-primary transition-colors"
-          aria-label={
-            unreadMessages > 0
-              ? `Notifications, ${unreadMessages} unread candidate messages`
-              : "Notifications"
-          }
-          aria-expanded={notifOpen}
-        >
-          <Bell size={18} aria-hidden="true" />
-          {unreadMessages > 0 && (
-            <span
-              className={cn(
-                "absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full",
-                "flex items-center justify-center text-[9px] font-semibold text-white",
-                "bg-danger border-[1.5px] border-surface-elevated px-0.5",
-              )}
-            >
-              {unreadMessages}
-            </span>
-          )}
-        </button>
-        {notifOpen && (
-          <>
-            <button
-              type="button"
-              className="fixed inset-0 z-10"
-              aria-label="Close notifications"
-              onClick={() => setNotifOpen(false)}
-            />
+      <div className="flex items-center gap-4 flex-shrink-0">
+        <div className="relative" ref={notifRef}>
+          <button
+            type="button"
+            onClick={() => setNotifOpen((open) => !open)}
+            className="relative text-text-muted hover:text-text-primary transition-colors"
+            aria-label={
+              unreadMessages > 0
+                ? `Notifications, ${unreadMessages} unread candidate messages`
+                : "Notifications"
+            }
+            aria-expanded={notifOpen}
+            aria-haspopup="true"
+          >
+            <Bell size={18} aria-hidden="true" />
+            {unreadMessages > 0 && (
+              <span
+                className={cn(
+                  "absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full",
+                  "flex items-center justify-center text-[9px] font-semibold text-white",
+                  "bg-danger border-[1.5px] border-surface-elevated px-0.5",
+                )}
+              >
+                {unreadMessages}
+              </span>
+            )}
+          </button>
+          {notifOpen && (
             <Card
               variant="glass"
-              className="absolute right-10 top-8 w-72 overflow-hidden z-20 shadow-elevated !rounded-xl"
+              role="menu"
+              aria-label="Notifications"
+              className="absolute right-0 top-full mt-2 w-72 overflow-hidden z-50 shadow-elevated !rounded-xl"
             >
               <div className="px-4 py-3 text-xs font-medium border-b border-border-subtle text-text-primary">
-                Candidate messages
+                Notifications
               </div>
-              <p className="px-4 py-3 text-xs text-text-muted">
-                {unreadMessages > 0
-                  ? `${unreadMessages} unread message${unreadMessages === 1 ? "" : "s"} from candidates.`
-                  : "No unread candidate messages."}
-              </p>
+              {unreadMessages > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotifOpen(false);
+                    router.push("/admin/messages");
+                  }}
+                  className="flex w-full items-start gap-3 border-b border-border-subtle px-4 py-3 text-left hover:bg-brand-50/60 transition-colors"
+                >
+                  <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                    <MessageCircle size={14} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold text-text-primary">
+                      Candidate messages
+                    </span>
+                    <span className="block text-[11px] text-text-muted">
+                      {unreadMessages} unread message{unreadMessages === 1 ? "" : "s"}
+                    </span>
+                  </span>
+                </button>
+              ) : (
+                <p className="px-4 py-3 text-xs text-text-muted">No notifications</p>
+              )}
             </Card>
-          </>
-        )}
+          )}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

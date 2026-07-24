@@ -50,6 +50,20 @@
       "when": 1784754000000,
       "tag": "0006_application_interview_assessment",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784860020148,
+      "tag": "0007_consultation_meeting_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784861000000,
+      "tag": "0008_candidate_section_views",
+      "breakpoints": true
     }
   ]
 }

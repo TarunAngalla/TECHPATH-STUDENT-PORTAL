@@ -10,7 +10,9 @@ import {
 } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import {
+  getChatThreads,
   getConversationMessages,
+  getUnreadMessageCount,
   markConversationMessagesRead,
 } from "@/lib/db/queries/shared/messages";
 import { candidates, messages, users } from "@/lib/db/schema";
@@ -91,6 +93,7 @@ export async function fetchConversation(partnerId: string) {
       receiverId: m.receiverId,
       body: m.body,
       sentAt: m.sentAt,
+      seenAt: m.seenAt,
     })),
   };
 }
@@ -115,6 +118,8 @@ export async function sendMessageAction(receiverId: string, body: string) {
 
   revalidatePath("/messages");
   revalidatePath("/admin/messages");
+  revalidatePath("/", "layout");
+  revalidatePath("/admin", "layout");
   return {};
 }
 
@@ -125,9 +130,26 @@ export async function markConversationReadAction(partnerId: string) {
     session.role as UserRole,
     partnerId,
   );
-  if (!allowed) return;
+  if (!allowed) return { marked: 0 };
 
-  await markConversationMessagesRead(partnerId, session.userId);
-  revalidatePath("/messages");
-  revalidatePath("/admin/messages");
+  const marked = await markConversationMessagesRead(partnerId, session.userId);
+  if (marked > 0) {
+    revalidatePath("/messages");
+    revalidatePath("/admin/messages");
+    revalidatePath("/", "layout");
+    revalidatePath("/admin", "layout");
+  }
+  return { marked };
+}
+
+export async function getUnreadMessagesCountAction() {
+  const session = await requireMessagingSession();
+  const count = await getUnreadMessageCount(session.userId);
+  return { count };
+}
+
+export async function getChatThreadsAction() {
+  const session = await requireMessagingSession();
+  const threads = await getChatThreads(session.userId, session.role);
+  return { threads };
 }

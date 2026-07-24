@@ -5,17 +5,21 @@ import { z } from "zod";
 import { requireCandidatePortalAccess, requireStaffAuth } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { announcementReads, announcements } from "@/lib/db/schema";
+import { getAnnouncementsForCandidate } from "@/lib/db/queries/shared/announcements";
 
-export async function markAnnouncementRead(announcementId: string, candidateId: string) {
+export async function markAnnouncementRead(announcementId: string, candidateId?: string) {
   const session = await requireCandidatePortalAccess();
-  if (session.candidateId !== candidateId) return;
+  const targetCandidateId = candidateId ?? session.candidateId;
+  if (!targetCandidateId || session.candidateId !== targetCandidateId) return;
 
   await db
     .insert(announcementReads)
-    .values({ announcementId, candidateId })
+    .values({ announcementId, candidateId: targetCandidateId })
     .onConflictDoNothing();
 
   revalidatePath("/announcements");
+  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 const createSchema = z.object({
@@ -50,6 +54,7 @@ export async function createAnnouncement(data: z.infer<typeof createSchema>) {
   revalidatePath("/announcements");
   revalidatePath("/admin/announcements");
   revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
   return {};
 }
 
@@ -57,7 +62,7 @@ export async function markAllAnnouncementsRead(candidateId: string) {
   const session = await requireCandidatePortalAccess();
   if (session.candidateId !== candidateId) return;
 
-  const all = await db.select({ id: announcements.id }).from(announcements);
+  const all = await getAnnouncementsForCandidate(candidateId);
   for (const a of all) {
     await db
       .insert(announcementReads)
@@ -65,4 +70,22 @@ export async function markAllAnnouncementsRead(candidateId: string) {
       .onConflictDoNothing();
   }
   revalidatePath("/announcements");
+  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
+}
+
+/** Live pulse for candidate bell / layout without a full page reload. */
+export async function getCandidateAnnouncementsPulseAction() {
+  const session = await requireCandidatePortalAccess();
+  if (!session.candidateId) {
+    return {
+      unreadCount: 0,
+      announcements: [] as Awaited<ReturnType<typeof getAnnouncementsForCandidate>>,
+    };
+  }
+  const list = await getAnnouncementsForCandidate(session.candidateId);
+  return {
+    unreadCount: list.filter((a) => !a.isRead).length,
+    announcements: list,
+  };
 }

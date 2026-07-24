@@ -81,3 +81,12 @@ export async function getSignedDownloadUrl(value: string | null | undefined, exp
   if (error || !data?.signedUrl) throw new Error(error?.message ?? "Could not create download URL");
   return data.signedUrl;
 }
+
+export async function getSignedViewUrl(value: string | null | undefined, expiresInSeconds = 3600) {
+  const path = storagePathFromValue(value) ?? value?.replace(/^\/+/, "") ?? null;
+  if (!path || path.includes("..")) throw new Error("Storage path is invalid");
+  const { data, error } = await getSupabaseAdmin().storage.from(getBucket())
+    .createSignedUrl(path, expiresInSeconds);
+  if (error || !data?.signedUrl) throw new Error(error?.message ?? "Could not create view URL");
+  return data.signedUrl;
+}

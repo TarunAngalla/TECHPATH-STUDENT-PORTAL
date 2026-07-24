@@ -1,7 +1,8 @@
-import { and, count, desc, eq, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, ne, or, asc } from "drizzle-orm";
 import type { StaffScope } from "@/lib/auth/staff-scope";
 import { db } from "@/lib/db";
 import { applications, candidates, messages, staffProfiles, users } from "@/lib/db/schema";
+import { resolveAvatarUrl } from "@/lib/storage/avatars";
 
 function scopeWhere(scope?: StaffScope) {
   if (!scope || scope.seesAllCandidates || !scope.recruiterId) return undefined;
@@ -23,6 +24,7 @@ export async function getCandidatesList(scope?: StaffScope) {
       marketingPausedAt: candidates.marketingPausedAt,
       marketingCompletedAt: candidates.marketingCompletedAt,
       marketingNotes: candidates.marketingNotes,
+      avatarPath: candidates.avatarPath,
       createdAt: candidates.createdAt,
       email: users.email,
       accountState: users.accountState,
@@ -56,12 +58,27 @@ export async function getCandidatesList(scope?: StaffScope) {
       }
       return {
         ...c,
+        avatarUrl: await resolveAvatarUrl(c.avatarPath),
         applicationCount: Number(appCount?.count ?? 0),
         lastActivity: lastMsg?.sentAt ?? c.createdAt,
         recruiterEmail,
       };
     }),
   );
+}
+
+/** Lightweight options for staff “Add application” pickers. */
+export async function getStaffCandidateOptions(scope?: StaffScope) {
+  return db
+    .select({
+      id: candidates.id,
+      fullName: candidates.fullName,
+      email: users.email,
+    })
+    .from(candidates)
+    .innerJoin(users, eq(candidates.userId, users.id))
+    .where(scopeWhere(scope))
+    .orderBy(asc(candidates.fullName));
 }
 
 export async function getCandidateDetail(candidateId: string, scope?: StaffScope) {
@@ -84,6 +101,7 @@ export async function getCandidateDetail(candidateId: string, scope?: StaffScope
       marketingPausedAt: candidates.marketingPausedAt,
       marketingCompletedAt: candidates.marketingCompletedAt,
       marketingNotes: candidates.marketingNotes,
+      avatarPath: candidates.avatarPath,
       createdAt: candidates.createdAt,
       email: users.email,
       accountState: users.accountState,

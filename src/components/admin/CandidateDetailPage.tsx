@@ -12,7 +12,6 @@ import {
   Play,
   RefreshCw,
   Send,
-  ShieldCheck,
   ShieldX,
   Upload,
 } from "lucide-react";
@@ -78,6 +77,7 @@ type CandidateDetail = {
   email: string;
   accountState: "pending_setup" | "nda_pending" | "active" | "suspended";
   firstLogin: boolean;
+  avatarUrl?: string | null;
 };
 
 export function CandidateDetailPage({
@@ -141,6 +141,7 @@ export function CandidateDetailPage({
     revokedAt: Date | null;
     createdAt: Date;
     status: "active" | "used" | "revoked" | "expired";
+    setupUrl?: string | null;
   } | null;
   assignmentHistory: {
     id: string;
@@ -351,7 +352,7 @@ export function CandidateDetailPage({
 
       <Card variant="glass" className="p-5 mb-5 flex items-start justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <Avatar name={candidate.fullName} size="lg" />
+          <Avatar name={candidate.fullName} src={candidate.avatarUrl} size="lg" />
           <div>
             <div className="text-base font-semibold text-text-primary">{candidate.fullName}</div>
             <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs mt-1 text-text-muted">
@@ -445,8 +446,7 @@ export function CandidateDetailPage({
                 ))}
               </div>
               <p className="text-xs text-text-muted">
-                Marketing is currently <strong>{MARKETING_STATUS_LABELS[marketingStatus]}</strong>.
-                Stage and marketing changes are written to immutable operational history instead of being inferred from the account creation date.
+                Marketing: <strong>{MARKETING_STATUS_LABELS[marketingStatus]}</strong>
               </p>
             </CardContent>
           </Card>
@@ -616,11 +616,66 @@ export function CandidateDetailPage({
               </div>
             </div>
 
-            <p className="text-xs mb-4 flex items-start gap-1.5 text-text-muted">
-              <ShieldCheck size={13} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
-              Candidates create their password only through an expiring, single-use setup link.
-              Temporary passwords are never displayed or emailed.
-            </p>
+            {(inviteFeedback?.previewUrl || latestInvite?.setupUrl) &&
+              candidate.accountState === "pending_setup" &&
+              latestInvite?.status === "active" && (
+                <div className="mb-5 rounded-xl border border-brand-500/20 bg-brand-50 px-4 py-3">
+                  <div className="text-xs font-semibold text-text-primary">Setup link</div>
+                  <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      readOnly
+                      value={inviteFeedback?.previewUrl || latestInvite?.setupUrl || ""}
+                      className="h-9 flex-1 font-mono text-[11px]"
+                      onFocus={(event) => event.currentTarget.select()}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={async () => {
+                          const url = inviteFeedback?.previewUrl || latestInvite?.setupUrl;
+                          if (!url) return;
+                          try {
+                            await navigator.clipboard.writeText(url);
+                            setInviteFeedback({
+                              kind: "success",
+                              message: "Setup link copied to clipboard.",
+                              previewUrl: url,
+                            });
+                          } catch {
+                            setInviteFeedback({
+                              kind: "error",
+                              message: "Could not copy automatically — select the link and copy it manually.",
+                              previewUrl: url,
+                            });
+                          }
+                        }}
+                      >
+                        Copy link
+                      </Button>
+                      <Button type="button" size="sm" asChild>
+                        <a
+                          href={inviteFeedback?.previewUrl || latestInvite?.setupUrl || "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open link
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            {candidate.accountState === "pending_setup" &&
+              !inviteFeedback?.previewUrl &&
+              !latestInvite?.setupUrl &&
+              canManageInvites && (
+                <p className="mb-4 rounded-xl bg-surface/60 px-3 py-2 text-xs text-text-muted">
+                  No setup link stored. Click <span className="font-semibold text-text-primary">Resend invite</span> to generate one.
+                </p>
+              )}
 
             {canManageInvites ? (
               <div className="flex flex-wrap gap-2 mb-4">
@@ -632,7 +687,7 @@ export function CandidateDetailPage({
                   loading={isPending}
                 >
                   <RefreshCw size={13} aria-hidden="true" />
-                  {latestInvite ? "Revoke old and resend invite" : "Send setup invite"}
+                  {latestInvite ? "Resend invite" : "Send setup invite"}
                 </Button>
                 <Button
                   type="button"
@@ -645,15 +700,12 @@ export function CandidateDetailPage({
                 </Button>
               </div>
             ) : (
-              <p className="mb-4 text-xs text-text-muted">
-                Only administrators can issue or revoke account setup invitations.
-              </p>
+              <p className="mb-4 text-xs text-text-muted">Only administrators can manage invitations.</p>
             )}
 
             {candidate.accountState !== "pending_setup" && (
               <p className="mb-4 rounded-xl bg-success-soft px-3 py-2 text-xs text-success">
-                Account setup is complete. A new setup invitation cannot be issued unless an administrator
-                intentionally resets the account state in a future approved recovery workflow.
+                Account setup complete.
               </p>
             )}
 
@@ -780,6 +832,8 @@ function DocumentsTab({
   router: ReturnType<typeof useRouter>;
 }) {
   const [showUpload, setShowUpload] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -787,6 +841,7 @@ function DocumentsTab({
     startTransition(async () => {
       await uploadDocument(formData);
       setShowUpload(false);
+      setSelectedFileName(null);
       router.refresh();
     });
   };
@@ -794,7 +849,14 @@ function DocumentsTab({
   return (
     <Card variant="glass" className="overflow-hidden">
       <div className="flex justify-end p-3 border-b border-border-subtle">
-        <Button type="button" size="sm" onClick={() => setShowUpload(!showUpload)}>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            setShowUpload((open) => !open);
+            setSelectedFileName(null);
+          }}
+        >
           <Upload size={13} aria-hidden="true" /> Upload document
         </Button>
       </div>
@@ -809,9 +871,43 @@ function DocumentsTab({
               </option>
             ))}
           </Select>
-          <input name="file" type="file" required accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" className="text-xs" />
-          <Button type="submit" size="sm" disabled={isPending} loading={isPending}>
-            Upload
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold text-text-muted">File</p>
+            <input
+              ref={fileInputRef}
+              name="file"
+              type="file"
+              required
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+              className="sr-only"
+              onChange={(event) => {
+                setSelectedFileName(event.target.files?.[0]?.name ?? null);
+              }}
+            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="justify-start sm:min-w-[9.5rem]"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={13} aria-hidden="true" />
+                Choose file
+              </Button>
+              <span
+                className={cn(
+                  "text-xs truncate min-w-0",
+                  selectedFileName ? "text-text-primary font-medium" : "text-text-muted",
+                )}
+              >
+                {selectedFileName ?? "No file chosen"}
+              </span>
+            </div>
+            <p className="text-[10px] text-text-muted">PDF, DOC, DOCX, PNG, or JPG</p>
+          </div>
+          <Button type="submit" size="sm" disabled={isPending || !selectedFileName} loading={isPending}>
+            Upload document
           </Button>
         </form>
       )}

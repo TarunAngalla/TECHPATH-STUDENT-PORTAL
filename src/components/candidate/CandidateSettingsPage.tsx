@@ -1,26 +1,32 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Lock, ShieldCheck } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Camera, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { candidateChangePasswordAction } from "@/lib/actions/auth";
-import { updateCandidatePhone } from "@/lib/actions/settings";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import {
+  removeCandidateAvatar,
+  updateCandidatePhone,
+  uploadCandidateAvatar,
+} from "@/lib/actions/settings";
+import { Avatar, Button, Input } from "@/components/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { formatDateTime } from "@/lib/utils/dates";
+import { cn } from "@/lib/utils/cn";
+
+function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="block text-xs font-semibold mb-1.5 text-text-muted">
+      {children}
+    </label>
+  );
+}
 
 function ReadOnlyField({ label, value, id }: { label: string; value: string; id: string }) {
   return (
     <div>
-      <label htmlFor={id} className="block text-xs font-bold mb-1.5 text-text-muted">
-        {label}
-      </label>
-      <input
-        id={id}
-        value={value}
-        readOnly
-        className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border border-border-strong/30 bg-surface text-text-muted font-medium shadow-xs"
-      />
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Input id={id} value={value} readOnly className="bg-surface text-text-muted" />
     </div>
   );
 }
@@ -29,22 +35,27 @@ export function CandidateSettingsPage({
   fullName,
   email,
   phone: initialPhone,
+  avatarUrl: initialAvatarUrl,
   lastAdminReset,
   allowPhoneEdit = false,
 }: {
   fullName: string;
   email: string;
   phone: string;
+  avatarUrl: string | null;
   lastAdminReset: Date | string | null;
   allowPhoneEdit?: boolean;
+  storageMode?: "local" | "supabase";
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [phone, setPhone] = useState(initialPhone);
+  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const handleSave = () => {
+  const handleSavePhone = () => {
     startTransition(async () => {
       const result = await updateCandidatePhone(phone);
       if (result.error) {
@@ -73,129 +84,178 @@ export function CandidateSettingsPage({
     });
   };
 
-  const passwordNote = lastAdminReset
-    ? `Last admin reset: ${formatDateTime(lastAdminReset)}`
-    : "You can change your password anytime.";
+  const handleAvatarSelected = (file: File | undefined) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.set("avatar", file);
+    startTransition(async () => {
+      const result = await uploadCandidateAvatar(formData);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      setAvatarUrl(result.avatarUrl ?? null);
+      toast.success("Profile photo updated.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    });
+  };
+
+  const handleRemoveAvatar = () => {
+    startTransition(async () => {
+      const result = await removeCandidateAvatar();
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      setAvatarUrl(null);
+      toast.success("Profile photo removed.");
+    });
+  };
 
   return (
-    <section aria-labelledby="settings-heading" className="max-w-md space-y-6">
+    <section aria-labelledby="settings-heading" className="w-full space-y-5">
       <h2 id="settings-heading" className="sr-only">
-        Account settings
+        Account Settings
       </h2>
 
-      <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs rounded-2xl">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-bold text-text-primary">Profile Details</CardTitle>
-          <CardDescription className="text-xs text-text-muted mt-1">
-            Your contact details visible to your recruiter.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ReadOnlyField label="Full Name" value={fullName} id="settings-name" />
-          <ReadOnlyField label="Email Address" value={email} id="settings-email" />
-          <div>
-            <label
-              htmlFor="settings-phone"
-              className="block text-xs font-bold mb-1.5 text-text-muted"
-            >
-              Phone Number
-            </label>
-            <input
-              id="settings-phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              readOnly={!allowPhoneEdit}
-              className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border border-border-strong/45 bg-white text-text-primary focus:border-brand-500/80 focus:ring-1 focus:ring-brand-500/80 transition-colors shadow-xs font-medium"
-            />
-          </div>
-          {allowPhoneEdit ? (
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isPending}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-brand-500 text-white shadow-xs hover:bg-brand-600 transition-all disabled:opacity-60 disabled:pointer-events-none"
-            >
-              {isPending ? "Saving Changes…" : "Save Changes"}
-            </button>
-          ) : (
-            <p className="text-xs text-text-muted">Contact your recruiter to update profile details.</p>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-stretch">
+        <Card variant="glass" className="bg-white border border-border-strong/50 shadow-xs rounded-2xl h-full">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-bold text-text-primary">Profile</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="relative shrink-0">
+                <Avatar
+                  name={fullName}
+                  src={avatarUrl}
+                  size="lg"
+                  className="h-20 w-20 text-lg ring-2 ring-border-strong/40"
+                />
+                <span className="pointer-events-none absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 text-white shadow-xs">
+                  <Camera size={13} aria-hidden="true" />
+                </span>
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <p className="text-sm font-semibold text-text-primary">{fullName}</p>
+                <p className="text-xs text-text-muted">JPG, PNG, WEBP, or GIF · max 2 MB</p>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="sr-only"
+                    id="avatar-upload"
+                    onChange={(event) => handleAvatarSelected(event.target.files?.[0])}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={isPending}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload size={13} aria-hidden="true" />
+                    {avatarUrl ? "Change photo" : "Upload photo"}
+                  </Button>
+                  {avatarUrl && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={isPending}
+                      onClick={handleRemoveAvatar}
+                    >
+                      <Trash2 size={13} aria-hidden="true" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
 
-      <Card
-        variant="glass"
-        className="bg-white border border-border-strong/50 shadow-xs rounded-2xl"
-        aria-labelledby="password-section-heading"
-      >
-        <CardHeader className="pb-4">
-          <CardTitle id="password-section-heading" className="text-base font-bold text-text-primary">
-            Password
-          </CardTitle>
-          <CardDescription className="flex items-center gap-1.5 text-xs text-text-muted mt-1 font-medium">
-            <ShieldCheck size={13} className="text-success" aria-hidden="true" />
-            {passwordNote}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div
-            className="rounded-xl px-4 py-3 flex items-start gap-3 bg-brand-50/15 border border-brand-500/20"
-            role="note"
-          >
-            <Lock size={16} className="text-brand-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <p className="text-xs text-text-muted leading-relaxed font-medium">
-              Choose a strong password you don&apos;t use elsewhere. Password changes are audited for
-              your recruiter.
-            </p>
-          </div>
-          <div>
-            <label htmlFor="current-password" className="block text-xs font-bold mb-1.5 text-text-muted">
-              Current password
-            </label>
-            <input
-              id="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border border-border-strong/45 bg-white"
-            />
-          </div>
-          <div>
-            <label htmlFor="new-password" className="block text-xs font-bold mb-1.5 text-text-muted">
-              New password
-            </label>
-            <input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              minLength={8}
-              className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border border-border-strong/45 bg-white"
-            />
-          </div>
-          <div>
-            <label htmlFor="confirm-password" className="block text-xs font-bold mb-1.5 text-text-muted">
-              Confirm new password
-            </label>
-            <input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              minLength={8}
-              className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border border-border-strong/45 bg-white"
-            />
-          </div>
-          <Button
-            type="button"
-            onClick={handlePasswordChange}
-            disabled={isPending || !currentPassword || !newPassword}
-            className="w-full"
-          >
-            {isPending ? "Updating…" : "Update password"}
-          </Button>
-        </CardContent>
-      </Card>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ReadOnlyField label="Full name" value={fullName} id="settings-name" />
+              <ReadOnlyField label="Email address" value={email} id="settings-email" />
+              <div className="sm:col-span-2">
+                <FieldLabel htmlFor="settings-phone">Phone number</FieldLabel>
+                <Input
+                  id="settings-phone"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  readOnly={!allowPhoneEdit}
+                  className={cn(!allowPhoneEdit && "bg-surface text-text-muted")}
+                />
+              </div>
+            </div>
+
+            {allowPhoneEdit && (
+              <Button type="button" size="sm" onClick={handleSavePhone} disabled={isPending} loading={isPending}>
+                Save phone number
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card
+          variant="glass"
+          className="bg-white border border-border-strong/50 shadow-xs rounded-2xl h-full"
+          aria-labelledby="password-section-heading"
+        >
+          <CardHeader className="pb-2">
+            <CardTitle id="password-section-heading" className="text-base font-bold text-text-primary">
+              Password
+            </CardTitle>
+            {lastAdminReset && (
+              <p className="mt-1 text-xs text-text-muted">
+                Last admin reset: {formatDateTime(lastAdminReset)}
+              </p>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <FieldLabel htmlFor="current-password">Current password</FieldLabel>
+              <Input
+                id="current-password"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="new-password">New password</FieldLabel>
+              <Input
+                id="new-password"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                minLength={8}
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="confirm-password">Confirm new password</FieldLabel>
+              <Input
+                id="confirm-password"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                minLength={8}
+              />
+            </div>
+            <Button
+              type="button"
+              onClick={handlePasswordChange}
+              disabled={isPending || !currentPassword || !newPassword || !confirmPassword}
+              loading={isPending}
+            >
+              Update password
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </section>
   );
 }

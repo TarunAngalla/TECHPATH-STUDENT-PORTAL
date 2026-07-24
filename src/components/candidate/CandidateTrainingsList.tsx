@@ -332,11 +332,6 @@ function TrainingRow({ training, allowSelfComplete }: { training: TrainingItem; 
   );
 }
 
-const TAB_NOTES: Record<Tab, string> = {
-  upcoming: "Training modules assigned to you appear here. Watch videos to complete them.",
-  completed: "Completed trainings will appear here once you finish assigned modules.",
-};
-
 export function CandidateTrainingsList({ trainings, allowSelfComplete = false }: { trainings: TrainingItem[]; allowSelfComplete?: boolean }) {
   const [activeTab, setActiveTab] = useState<Tab>("upcoming");
 
@@ -386,7 +381,7 @@ export function CandidateTrainingsList({ trainings, allowSelfComplete = false }:
 
       {activeList.length === 0 ? (
         <Card variant="glass" className="overflow-hidden bg-white border border-border-strong/50 shadow-xs">
-          <EmptyState title={`No ${activeTab} trainings`} note={TAB_NOTES[activeTab]} />
+          <EmptyState title={`No ${activeTab} trainings`} />
         </Card>
       ) : (
         <Card

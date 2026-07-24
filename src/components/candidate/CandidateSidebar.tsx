@@ -13,11 +13,15 @@ export function CandidateSidebar({
   mobileOpen,
   setMobileOpen,
   messageBadge,
+  interviewBadge,
+  assessmentBadge,
   collapsed = false,
 }: {
   mobileOpen: boolean;
   setMobileOpen: (open: boolean) => void;
   messageBadge?: number;
+  interviewBadge?: number;
+  assessmentBadge?: number;
   collapsed?: boolean;
 }) {
   const pathname = usePathname();
@@ -63,7 +67,14 @@ export function CandidateSidebar({
                 {section.items.map((item) => {
                   const active =
                     pathname === item.href || pathname.startsWith(`${item.href}/`);
-                  const badge = item.key === "messages" ? messageBadge : undefined;
+                  const badge =
+                    item.key === "messages"
+                      ? messageBadge
+                      : item.key === "interview-details"
+                        ? interviewBadge
+                        : item.key === "assessments"
+                          ? assessmentBadge
+                          : undefined;
 
                   return (
                     <Link
@@ -108,9 +119,7 @@ export function CandidateSidebar({
         </nav>
 
         {!collapsed && (
-          <div className="mx-3 my-2 p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/80">
-            <div className="font-semibold mb-1 text-white">Need Help?</div>
-            <div className="text-[10px] text-white/50 mb-2">{"We're here to support you."}</div>
+          <div className="mx-3 my-2 p-3 rounded-xl bg-white/5 border border-white/10">
             <a
               href="mailto:support@thetechpath.com"
               className="text-[11px] font-medium text-brand-100 hover:underline block truncate"

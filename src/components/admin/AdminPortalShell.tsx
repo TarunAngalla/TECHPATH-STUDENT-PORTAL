@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ADMIN_PAGE_TITLES, adminPathToNavKey } from "@/lib/constants/admin-nav";
 import type { UserRole } from "@/lib/auth/session-config";
 import { useScrollToTopOnRouteChange } from "@/lib/hooks/useScrollToTopOnRouteChange";
+import { useUnreadMessageCount } from "@/lib/hooks/useUnreadMessageCount";
 import { cn } from "@/lib/utils/cn";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminTopbar } from "./AdminTopbar";
@@ -28,6 +29,7 @@ export function AdminPortalShell({
 }) {
   const pathname = usePathname();
   useScrollToTopOnRouteChange();
+  const liveUnreadMessages = useUnreadMessageCount(unreadMessages);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const navKey = adminPathToNavKey(pathname);
@@ -47,7 +49,7 @@ export function AdminPortalShell({
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
         newLeadsBadge={newLeadsBadge}
-        unreadMessages={unreadMessages}
+        unreadMessages={liveUnreadMessages}
         collapsed={collapsed}
         staffRole={staffRole}
         portalSubtitle={portalSubtitle}
@@ -66,11 +68,11 @@ export function AdminPortalShell({
           setMobileOpen={setMobileOpen}
           staffName={staffName}
           staffInitials={staffInitials}
-          unreadMessages={unreadMessages}
+          unreadMessages={liveUnreadMessages}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
         />
-        <main id="main-content" className="flex-1 px-5 sm:px-8 py-6 max-w-[1500px] mx-auto w-full" tabIndex={-1}>
+        <main id="main-content" className="flex-1 px-5 sm:px-8 py-6 max-w-[1500px] mx-auto w-full min-w-0 overflow-x-hidden" tabIndex={-1}>
           {children}
         </main>
       </div>

@@ -15,7 +15,6 @@ import {
   Users,
   Send,
   ClipboardCheck,
-  Headphones,
   Target,
   ShieldCheck,
   Calendar,
@@ -26,6 +25,7 @@ import { dayLabel, daysUntil, formatDate, formatDateTime } from "@/lib/utils/dat
 import { downloadInterviewICS, getGoogleCalendarLink } from "@/lib/utils/ics";
 import type { Application, MarketingStatus } from "@/lib/db/schema";
 import { STATUS_META, type ApplicationStatus } from "@/lib/constants/status-meta";
+import { hrefForAnnouncement } from "@/lib/notifications/announcement-links";
 import { cn } from "@/lib/utils/cn";
 
 type ChecklistItem = {
@@ -313,15 +313,21 @@ function AnnouncementsCard({
 
         <div className="space-y-4">
           {announcements.map((ann, i) => (
-            <div key={ann.id || `ann-${i}`} className="flex gap-3">
+            <Link
+              key={ann.id || `ann-${i}`}
+              href={hrefForAnnouncement(ann.title, ann.id)}
+              className="flex gap-3 group"
+            >
               <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center text-success flex-shrink-0">
                 <Send size={14} />
               </div>
               <div>
-                <div className="text-xs font-semibold text-text-primary">{ann.title}</div>
+                <div className="text-xs font-semibold text-text-primary group-hover:text-brand-500 transition-colors">
+                  {ann.title}
+                </div>
                 <div className="text-[10px] text-text-muted mt-0.5">{formatDate(ann.createdAt)}</div>
               </div>
-            </div>
+            </Link>
           ))}
 
           {checklist.filter((item) => !item.done).map((item, i) => (
@@ -387,24 +393,14 @@ export function CandidateDashboard({
   announcements: { id: string; title: string; createdAt: Date | string }[];
   checklist: ChecklistItem[];
 }) {
-  const uniqueCompanies = new Set(stats.applications.map((a) => a.companyName)).size;
   const nextUp = stats.upcoming[0];
   const emptyApplications = stats.totalApplications === 0;
   const marketingLive = marketingStatus === "live" || marketingStatus === "completed";
 
-  const welcomeSubtitle = emptyApplications
-    ? marketingLive
-      ? "Marketing is live. Your recruiter will add applications here as they submit them to employers."
-      : "Your recruiter is preparing your profile. Check Messages or trainings while you wait."
-    : `You're being marketed to employers with ${stats.totalApplications} applications across ${uniqueCompanies} companies.`;
-
-  const emptyTitle = marketingLive
-    ? "Marketing is underway"
-    : "Your recruiter is setting up your profile";
-
+  const emptyTitle = marketingLive ? "No applications yet" : "Profile setup in progress";
   const emptyBody = marketingLive
-    ? "No applications have been logged yet. As soon as your recruiter submits roles for you, they will show up on Applications and here on your dashboard."
-    : "Applications will appear here once marketing begins. Meanwhile, complete your checklist and message your recruiter if you have questions.";
+    ? "Applications appear here when your recruiter submits roles."
+    : "Applications appear here once marketing begins.";
 
   return (
     <div className="grid gap-6">
@@ -414,8 +410,7 @@ export function CandidateDashboard({
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-text-muted font-medium">Profile last updated {profileLastUpdated}</span>
             </div>
-            <h2 className="text-2xl font-bold text-text-primary mt-1.5">Welcome back, {candidateName}!</h2>
-            <p className="text-sm text-text-muted mt-1 max-w-xl">{welcomeSubtitle}</p>
+            <h2 className="text-2xl font-bold text-text-primary mt-1.5">Welcome back, {candidateName}</h2>
           </div>
           <div className="flex-shrink-0">
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -524,7 +519,6 @@ export function CandidateDashboard({
                 <div>
                   <div className="text-xs text-text-muted font-medium">Assessments completed</div>
                   <div className="text-2xl font-bold text-text-primary mt-1">{stats.assessmentsCompleted}</div>
-                  <div className="text-[10px] text-text-muted font-semibold mt-1">Verified assessment activity</div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 border border-purple-500/10">
                   <ClipboardCheck size={18} />
@@ -536,20 +530,6 @@ export function CandidateDashboard({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="flex flex-col gap-6">
               <RecruiterCard recruiter={recruiter} candidateId={candidateId} />
-              <Card variant="glass" className="rounded-2xl border border-border-strong/50 shadow-xs p-5 bg-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center text-brand-500 border border-brand-500/10">
-                    <Headphones size={16} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-text-primary">Need Help?</h4>
-                    <p className="text-[10px] text-text-muted">Message your recruiter for support.</p>
-                  </div>
-                </div>
-                <Link href="/messages" className="text-[11px] font-semibold text-brand-500 hover:underline block mt-3">
-                  Open messages →
-                </Link>
-              </Card>
             </div>
 
             <div>

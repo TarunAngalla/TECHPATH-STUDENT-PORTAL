@@ -16,9 +16,6 @@ import type { Application } from "@/lib/db/schema";
 import { formatDate } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 
-const APPLICATIONS_HELP =
-  "Comments are saved notes visible to both you and your recruiter — not a live chat.";
-
 function useDebouncedValue<T>(value: T, delay = 300): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -267,8 +264,6 @@ export function CandidateApplicationsTable({ applications, allowComments = false
           </Card>
         </>
       )}
-
-      <p className="text-[11px] mt-4 text-text-muted leading-relaxed">{APPLICATIONS_HELP}</p>
     </section>
   );
 }

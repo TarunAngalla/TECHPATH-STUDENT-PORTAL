@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus, ShieldCheck, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { createStaffUser, updateStaffRole } from "@/lib/actions/settings";
+import { createStaffUser, deleteStaffUser, updateStaffRole } from "@/lib/actions/settings";
 import { updateStaffProfileAction } from "@/lib/actions/staff-profiles";
 import { formatDate } from "@/lib/utils/dates";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
@@ -33,9 +33,12 @@ type StaffUser = {
 export function TeamPermissionsPage({
   staff,
   isAdmin,
+  staffEmailDomain,
 }: {
   staff: StaffUser[];
   isAdmin: boolean;
+  /** From ORG_EMAIL_DOMAIN / ADMIN_EMAIL_DOMAIN — required, no hardcoded brand. */
+  staffEmailDomain: string;
 }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -48,20 +51,37 @@ export function TeamPermissionsPage({
   const [roleChange, setRoleChange] = useState<{ userId: string; role: "recruiter" | "admin" } | null>(
     null,
   );
+  const [deleteUser, setDeleteUser] = useState<StaffUser | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail.endsWith(`@${staffEmailDomain.toLowerCase()}`)) {
+      const message = `Staff accounts must use an @${staffEmailDomain} email address.`;
+      setError(message);
+      toast.error(message);
+      return;
+    }
     startTransition(async () => {
-      const result = await createStaffUser(email, role, password);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await createStaffUser(normalizedEmail, role, password);
+        if (result?.error) {
+          setError(result.error);
+          toast.error(result.error);
+          return;
+        }
+        setShowForm(false);
+        setEmail("");
+        setPassword("");
+        toast.success("Team member created.");
+        router.refresh();
+      } catch {
+        const message = "Could not create this staff account. Please try again.";
+        setError(message);
+        toast.error(message);
       }
-      setShowForm(false);
-      setEmail("");
-      setPassword("");
-      router.refresh();
     });
   };
 
@@ -106,9 +126,12 @@ export function TeamPermissionsPage({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@thetechpath.com"
+              placeholder={`you@${staffEmailDomain}`}
               className="h-9 text-xs border border-border-strong/50 shadow-xs focus:ring-1 focus:ring-brand-500 rounded-xl"
             />
+            <p className="text-[11px] text-text-muted -mt-2">
+              Must use a company email (@{staffEmailDomain}). Other domains are blocked.
+            </p>
             <Select
               value={role}
               onChange={(e) => setRole(e.target.value as "recruiter" | "admin")}
@@ -328,6 +351,16 @@ export function TeamPermissionsPage({
         confirmLabel="Save profile"
         pending={isPending}
         error={dialogError}
+        dangerActionLabel={profileUser?.role === "recruiter" ? "Delete member" : undefined}
+        onDangerAction={
+          profileUser?.role === "recruiter"
+            ? () => {
+                setDialogError(null);
+                setDeleteUser(profileUser);
+                setProfileUser(null);
+              }
+            : undefined
+        }
         onClose={() => {
           if (!isPending) {
             setProfileUser(null);
@@ -359,6 +392,41 @@ export function TeamPermissionsPage({
             setProfileUser(null);
             setDialogError(null);
             toast.success("Staff profile updated.");
+            router.refresh();
+          });
+        }}
+      />
+
+      <AdminActionDialog
+        open={deleteUser !== null}
+        title="Delete team member"
+        description={
+          deleteUser
+            ? `Remove ${deleteUser.fullName} (${deleteUser.email})? They will lose portal access immediately. Admin accounts cannot be deleted.`
+            : undefined
+        }
+        confirmLabel="Delete member"
+        danger
+        pending={isPending}
+        error={dialogError}
+        onClose={() => {
+          if (!isPending) {
+            setDeleteUser(null);
+            setDialogError(null);
+          }
+        }}
+        onConfirm={() => {
+          if (!deleteUser) return;
+          startTransition(async () => {
+            const result = await deleteStaffUser(deleteUser.id);
+            if (result.error) {
+              setDialogError(result.error);
+              toast.error(result.error);
+              return;
+            }
+            setDeleteUser(null);
+            setDialogError(null);
+            toast.success("Team member removed.");
             router.refresh();
           });
         }}

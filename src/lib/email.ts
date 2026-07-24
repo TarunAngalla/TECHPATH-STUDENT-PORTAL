@@ -125,7 +125,10 @@ export async function sendCandidateInviteEmail(input: {
 
   return {
     ...result,
-    previewUrl: process.env.NODE_ENV === "production" ? undefined : setupUrl,
+    previewUrl:
+      process.env.NODE_ENV === "production" && process.env.RESEND_API_KEY?.trim()
+        ? undefined
+        : setupUrl,
   };
 }
 
@@ -165,5 +168,58 @@ export async function sendNdaSignedEmail(input: {
         contentType: "application/pdf",
       },
     ],
+  });
+}
+
+export async function sendConsultationScheduledCandidateEmail(input: {
+  to: string;
+  fullName: string;
+  leadId: string;
+  scheduledAt: Date;
+  meetingLink?: string | null;
+}) {
+  return sendTrackedEmail({
+    emailType: "consultation_scheduled_candidate",
+    to: input.to,
+    subject: "Your TechPath consultation is scheduled",
+    relatedLeadId: input.leadId,
+    text: [
+      `Hi ${input.fullName},`,
+      "",
+      "Your consultation with The Tech Path team is scheduled.",
+      `When: ${formatDisplayTimestamp(input.scheduledAt)}`,
+      input.meetingLink ? `Meeting link: ${input.meetingLink}` : "Meeting link: Our team will share join details closer to the time.",
+      "",
+      "If you need to reschedule, reply to this email.",
+      "",
+      "— The TechPath Team",
+    ].join("\n"),
+  });
+}
+
+export async function sendConsultationScheduledStaffEmail(input: {
+  to: string;
+  leadId: string;
+  fullName: string;
+  candidateEmail: string;
+  scheduledAt: Date;
+  meetingLink?: string | null;
+  recipientLabel?: string;
+}) {
+  return sendTrackedEmail({
+    emailType: "consultation_scheduled_staff",
+    to: input.to,
+    subject: `Consultation scheduled: ${input.fullName}`,
+    relatedLeadId: input.leadId,
+    text: [
+      `A consultation was scheduled${input.recipientLabel ? ` (${input.recipientLabel})` : ""}.`,
+      "",
+      `Candidate: ${input.fullName}`,
+      `Email: ${input.candidateEmail}`,
+      `When: ${formatDisplayTimestamp(input.scheduledAt)}`,
+      input.meetingLink ? `Meeting link: ${input.meetingLink}` : "Meeting link: Not provided",
+      "",
+      "Open Consultations in the TechPath Admin Portal to manage this meeting.",
+    ].join("\n"),
   });
 }

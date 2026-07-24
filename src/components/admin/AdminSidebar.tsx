@@ -122,12 +122,10 @@ export function AdminSidebar({
         </nav>
 
         {!collapsed && (
-          <div className="mx-3 my-2 p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/80">
-            <div className="font-semibold mb-1 text-white">Need Help?</div>
-            <div className="text-[10px] text-white/50 mb-3">Contact support for any questions or assistance.</div>
+          <div className="mx-3 my-2">
             <Button variant="outline" size="sm" asChild className="w-full text-white border-white/20 hover:bg-white/10 hover:text-white">
               <a href="mailto:support@thetechpath.com" className="flex items-center justify-center gap-1.5 text-xs text-white">
-                Contact Support
+                Contact support
               </a>
             </Button>
           </div>

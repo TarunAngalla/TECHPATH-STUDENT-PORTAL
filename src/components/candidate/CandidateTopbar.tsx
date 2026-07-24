@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Bell, HelpCircle, LogOut, MessageCircle, Settings, PanelLeft, PanelLeftClose } from "lucide-react";
 import { candidateLogoutAction } from "@/lib/actions/auth";
+import { markAnnouncementRead } from "@/lib/actions/announcements";
+import { hrefForAnnouncement } from "@/lib/notifications/announcement-links";
 import type { Application } from "@/lib/db/schema";
 import { formatDate } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
@@ -30,6 +32,8 @@ export function CandidateTopbar({
   title,
   setMobileOpen,
   candidateName,
+  candidateAvatarUrl = null,
+  candidateId,
   unreadAnnouncements,
   unreadMessages,
   announcements,
@@ -40,6 +44,8 @@ export function CandidateTopbar({
   title: string;
   setMobileOpen: (open: boolean) => void;
   candidateName: string;
+  candidateAvatarUrl?: string | null;
+  candidateId?: string | null;
   unreadAnnouncements: number;
   unreadMessages: number;
   announcements: AnnouncementPreview[];
@@ -50,8 +56,41 @@ export function CandidateTopbar({
   const router = useRouter();
   const [notifOpen, setNotifOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const recent = announcements.slice(0, 3);
+  const [, startTransition] = useTransition();
+  const notifRef = useRef<HTMLDivElement>(null);
+  const recent = announcements.slice(0, 5);
   const unreadTotal = unreadAnnouncements + unreadMessages;
+
+  useEffect(() => {
+    if (!notifOpen) return;
+
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (target && notifRef.current?.contains(target)) return;
+      setNotifOpen(false);
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setNotifOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [notifOpen]);
+
+  const openAnnouncement = (a: AnnouncementPreview) => {
+    setNotifOpen(false);
+    if (!a.isRead && candidateId) {
+      startTransition(() => {
+        void markAnnouncementRead(a.id, candidateId);
+      });
+    }
+    router.push(hrefForAnnouncement(a.title, a.id));
+  };
 
   return (
     <>
@@ -107,10 +146,10 @@ export function CandidateTopbar({
             </svg>
           </Button>
 
-          <div className="relative">
+          <div className="relative" ref={notifRef}>
             <button
               type="button"
-              onClick={() => setNotifOpen(!notifOpen)}
+              onClick={() => setNotifOpen((open) => !open)}
               className="relative p-2 rounded-xl hover:bg-brand-50 transition-colors"
               aria-label={
                 unreadTotal > 0
@@ -118,6 +157,7 @@ export function CandidateTopbar({
                   : "Notifications"
               }
               aria-expanded={notifOpen}
+              aria-haspopup="true"
             >
               <Bell size={18} className="text-text-muted" aria-hidden="true" />
               {unreadTotal > 0 && (
@@ -128,74 +168,72 @@ export function CandidateTopbar({
             </button>
 
             {notifOpen && (
-              <>
-                <button
-                  type="button"
-                  className="fixed inset-0 z-10"
-                  aria-label="Close notifications"
-                  onClick={() => setNotifOpen(false)}
-                />
-                <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl glass shadow-elevated overflow-hidden z-20 animate-in fade-in-0 zoom-in-95">
-                  <div className="px-4 py-3 text-xs font-medium text-text-primary border-b border-border-subtle">
-                    Notifications
-                  </div>
-                  {unreadMessages > 0 && (
-                    <Link
-                      href="/messages"
-                      onClick={() => setNotifOpen(false)}
-                      className="flex items-start gap-3 border-b border-border-subtle px-4 py-3 hover:bg-brand-50/60"
+              <div
+                role="menu"
+                aria-label="Notifications"
+                className="absolute right-0 top-full mt-2 w-72 rounded-2xl glass shadow-elevated overflow-hidden z-50 animate-in fade-in-0 zoom-in-95"
+              >
+                <div className="px-4 py-3 text-xs font-medium text-text-primary border-b border-border-subtle">
+                  Notifications
+                </div>
+                {unreadMessages > 0 && (
+                  <Link
+                    href="/messages"
+                    onClick={() => setNotifOpen(false)}
+                    className="flex items-start gap-3 border-b border-border-subtle px-4 py-3 hover:bg-brand-50/60"
+                  >
+                    <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                      <MessageCircle size={14} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-xs font-semibold text-text-primary">Recruiter messages</span>
+                      <span className="block text-[11px] text-text-muted">{unreadMessages} unread message{unreadMessages === 1 ? "" : "s"}</span>
+                    </span>
+                  </Link>
+                )}
+                {recent.length === 0 ? (
+                  <p className="px-4 py-3 text-xs text-text-muted">No announcements yet.</p>
+                ) : (
+                  recent.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => openAnnouncement(a)}
+                      className="w-full px-4 py-3 flex items-start gap-2 border-b border-border-subtle last:border-0 text-left hover:bg-brand-50/60 transition-colors"
                     >
-                      <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-                        <MessageCircle size={14} aria-hidden="true" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-xs font-semibold text-text-primary">Recruiter messages</span>
-                        <span className="block text-[11px] text-text-muted">{unreadMessages} unread message{unreadMessages === 1 ? "" : "s"}</span>
-                      </span>
-                    </Link>
-                  )}
-                  {recent.length === 0 ? (
-                    <p className="px-4 py-3 text-xs text-text-muted">No announcements yet.</p>
-                  ) : (
-                    recent.map((a) => (
-                      <div
-                        key={a.id}
-                        className="px-4 py-3 flex items-start gap-2 border-b border-border-subtle last:border-0"
-                      >
-                        <span
-                          className={cn(
-                            "rounded-full flex-shrink-0 w-1.5 h-1.5 mt-1.5",
-                            a.isRead ? "bg-border-subtle" : "bg-brand-500",
-                          )}
-                          aria-hidden="true"
-                        />
-                        <div className="min-w-0">
-                          <div className="text-xs font-medium text-text-primary truncate">
-                            {a.title}
-                          </div>
-                          <div className="text-[11px] text-text-muted">
-                            {formatDate(a.createdAt)}
-                          </div>
+                      <span
+                        className={cn(
+                          "rounded-full flex-shrink-0 w-1.5 h-1.5 mt-1.5",
+                          a.isRead ? "bg-border-subtle" : "bg-brand-500",
+                        )}
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-text-primary truncate">
+                          {a.title}
+                        </div>
+                        <div className="text-[11px] text-text-muted">
+                          {formatDate(a.createdAt)}
                         </div>
                       </div>
-                    ))
-                  )}
-                  <Link
-                    href="/announcements"
-                    onClick={() => setNotifOpen(false)}
-                    className="block w-full py-2.5 text-center text-xs font-medium text-brand-600 hover:bg-brand-50 transition-colors"
-                  >
-                    View all announcements
-                  </Link>
-                </div>
-              </>
+                    </button>
+                  ))
+                )}
+                <Link
+                  href="/announcements"
+                  onClick={() => setNotifOpen(false)}
+                  className="block w-full py-2.5 text-center text-xs font-medium text-brand-600 hover:bg-brand-50 transition-colors"
+                >
+                  View all announcements
+                </Link>
+              </div>
             )}
           </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                <Avatar name={candidateName} size="sm" />
+                <Avatar name={candidateName} src={candidateAvatarUrl} size="sm" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[180px]">

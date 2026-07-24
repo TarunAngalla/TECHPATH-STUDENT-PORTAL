@@ -1,13 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   CheckCircle2,
   Building,
   Send,
   Compass,
-  ChevronRight,
   Clock,
   Circle
 } from "lucide-react";
@@ -19,37 +17,22 @@ import { MARKETING_STATUS_LABELS } from "@/lib/constants/marketing";
 import { formatDate } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 
-const STAGE_INFO: Record<
-  number,
-  { title: string; meaning: string; nextAction: string }
-> = {
+const STAGE_INFO: Record<number, { title: string; nextAction: string }> = {
   0: {
     title: JOURNEY_STEPS[0],
-    meaning:
-      "You're completing initial training and profile setup with your recruiter. This stage covers resume positioning and getting your candidate profile ready for marketing.",
-    nextAction:
-      "Finish any assigned training modules and make sure your contact details are up to date under Settings.",
+    nextAction: "Finish assigned trainings and keep your contact details current.",
   },
   1: {
     title: JOURNEY_STEPS[1],
-    meaning:
-      "A dedicated recruiter has been assigned to guide your job search. They'll review your profile and prepare it for submission to partner companies.",
-    nextAction:
-      "Introduce yourself via Messages if you haven't already. Your recruiter will reach out with next steps.",
+    nextAction: "Message your recruiter if you haven’t introduced yourself yet.",
   },
   2: {
     title: JOURNEY_STEPS[2],
-    meaning:
-      "Your profile is now live and being actively submitted to open roles by your recruiter and their partner network. This is usually the longest stage — most candidates are here for several weeks while applications and first-round conversations build up.",
-    nextAction:
-      "Stay reachable and review Interview Details, Assessments, and Announcements for recruiter-verified updates.",
+    nextAction: "Watch Interviews, Assessments, and Announcements for updates.",
   },
   3: {
     title: JOURNEY_STEPS[3],
-    meaning:
-      "You're in active interview and assessment stages with one or more companies. Your recruiter is coordinating scheduling and prep notes for each round.",
-    nextAction:
-      "Review Interview Details, complete any assigned Assessments, and keep your recruiter updated through the secure message thread.",
+    nextAction: "Review upcoming interviews and complete assigned assessments.",
   },
 };
 
@@ -110,23 +93,12 @@ export function CandidateProgressPage({
       </h2>
 
 
-      {/* Highlight Where You Are Card */}
       <Card variant="glass" className="col-span-full bg-brand-50/15 border border-brand-500/20 rounded-2xl p-6 shadow-xs">
-        <span className="text-[10px] font-semibold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-md uppercase tracking-wider">Current Status</span>
-        <h3 className="text-base font-bold text-text-primary mt-2">Active Stage: {stage.title}</h3>
-        <p className="text-xs text-text-muted mt-1.5 max-w-3xl leading-relaxed">{stage.meaning}</p>
-        
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-white border border-border-strong/50 shadow-xs mt-4">
-          <CheckCircle2
-            size={16}
-            className="text-success mt-0.5 flex-shrink-0"
-            aria-hidden="true"
-          />
-          <div>
-            <div className="text-xs font-bold text-text-primary">Recommended Actions</div>
-            <p className="text-xs text-text-muted mt-1 leading-relaxed">{stage.nextAction}</p>
-          </div>
-        </div>
+        <span className="text-[10px] font-semibold text-brand-500 bg-brand-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
+          Current stage
+        </span>
+        <h3 className="text-base font-bold text-text-primary mt-2">{stage.title}</h3>
+        <p className="text-xs text-text-muted mt-1.5">{stage.nextAction}</p>
       </Card>
 
       {/* Stat grid */}
@@ -205,16 +177,6 @@ export function CandidateProgressPage({
           </div>
         </CardContent>
       </Card>
-
-      {/* Footer recruiter help message */}
-      <div className="col-span-full text-center py-2">
-        <Link
-          href="/messages"
-          className="text-xs font-semibold text-brand-500 hover:underline inline-flex items-center gap-1"
-        >
-          Have questions about your placement timeline? Contact Recruiter <ChevronRight size={13} />
-        </Link>
-      </div>
     </section>
   );
 }

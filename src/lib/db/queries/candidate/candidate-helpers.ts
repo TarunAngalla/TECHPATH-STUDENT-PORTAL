@@ -17,6 +17,7 @@ export async function getCandidateByUserId(userId: string) {
       marketingPausedAt: candidates.marketingPausedAt,
       marketingCompletedAt: candidates.marketingCompletedAt,
       marketingNotes: candidates.marketingNotes,
+      avatarPath: candidates.avatarPath,
       userId: candidates.userId,
       email: users.email,
       firstLogin: users.firstLogin,

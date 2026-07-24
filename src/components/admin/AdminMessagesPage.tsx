@@ -4,23 +4,27 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   fetchConversation,
+  getChatThreadsAction,
   markConversationReadAction,
   sendMessageAction,
 } from "@/lib/actions/messages";
 import { ChatThread } from "@/components/shared/ChatThread";
 import type { ChatMessage } from "@/components/shared/ChatThread";
-import { Badge, Card } from "@/components/ui";
-import { MessageSquare, Search, User } from "lucide-react";
+import { Avatar, Badge, Card } from "@/components/ui";
+import { withUpdatedThreadPreview } from "@/lib/messaging/thread-list";
+import { notifyMessagesRead } from "@/lib/hooks/useUnreadMessageCount";
+import { MessageSquare, Search } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { formatDateTime } from "@/lib/utils/dates";
 
-const POLL_INTERVAL_MS = 10_000;
+const POLL_INTERVAL_MS = 4_000;
 
 type ChatThreadInfo = {
   id: string;
   fullName: string;
   email: string;
   role: string;
+  avatarUrl?: string | null;
   latestMessage: {
     body: string;
     sentAt: Date | string;
@@ -55,7 +59,14 @@ export function AdminMessagesPage({
 }: {
   threads: ChatThreadInfo[];
   selectedPartnerId: string | null;
-  initialMessages: { id: string; senderId: string; receiverId: string; body: string; sentAt: Date }[];
+  initialMessages: {
+    id: string;
+    senderId: string;
+    receiverId: string;
+    body: string;
+    sentAt: Date;
+    seenAt?: Date | string | null;
+  }[];
   currentUserId: string;
 }) {
   const router = useRouter();
@@ -75,6 +86,7 @@ export function AdminMessagesPage({
         sentAt: m.sentAt,
         senderId: m.senderId,
         receiverId: m.receiverId,
+        seenAt: m.seenAt ?? null,
       }));
     },
     [currentUserId],
@@ -93,16 +105,34 @@ export function AdminMessagesPage({
     setMessages((current) => mergeWithOptimistic(mapMessages(initialMessages), current, currentUserId));
   }, [initialMessages, mapMessages, currentUserId]);
 
-  // Refresh messages of the active thread
-  const refreshActiveMessages = useCallback(async () => {
-    if (!selectedId) return;
-    const result = await fetchConversation(selectedId);
-    if (result.messages) {
-      const mapped: ChatMessage[] = result.messages.map((m) => ({
+  const refreshInbox = useCallback(async () => {
+    if (selectedId) {
+      const result = await markConversationReadAction(selectedId);
+      if (result.marked > 0) {
+        notifyMessagesRead();
+      }
+    }
+
+    const [threadsResult, conversationResult] = await Promise.all([
+      getChatThreadsAction(),
+      selectedId ? fetchConversation(selectedId) : Promise.resolve(null),
+    ]);
+
+    if (threadsResult.threads) {
+      setThreads(
+        threadsResult.threads.map((t) =>
+          selectedId && t.id === selectedId ? { ...t, unreadCount: 0 } : t,
+        ),
+      );
+    }
+
+    if (selectedId && conversationResult?.messages) {
+      const mapped: ChatMessage[] = conversationResult.messages.map((m) => ({
         ...m,
         senderRole: (m.senderId === currentUserId ? "recruiter" : "candidate") as
           | "recruiter"
           | "candidate",
+        seenAt: m.seenAt ?? null,
       }));
       setMessages((current) => mergeWithOptimistic(mapped, current, currentUserId));
     }
@@ -110,24 +140,26 @@ export function AdminMessagesPage({
 
   // Read message marking
   useEffect(() => {
-    if (selectedId) {
-      void markConversationReadAction(selectedId);
-      // Update thread badge locally
-      setThreads((current) =>
-        current.map((t) => (t.id === selectedId ? { ...t, unreadCount: 0 } : t)),
-      );
-    }
-  }, [selectedId]);
-
-  // Poll for incoming messages
-  useEffect(() => {
     if (!selectedId) return;
+    void markConversationReadAction(selectedId).then(() => {
+      notifyMessagesRead();
+      router.refresh();
+    });
+    // Update thread badge locally
+    setThreads((current) =>
+      current.map((t) => (t.id === selectedId ? { ...t, unreadCount: 0 } : t)),
+    );
+  }, [selectedId, router]);
+
+  // Poll open chat + thread list previews
+  useEffect(() => {
     const poll = () => {
       if (document.visibilityState === "visible") {
-        void refreshActiveMessages();
+        void refreshInbox();
       }
     };
 
+    void poll();
     const intervalId = window.setInterval(poll, POLL_INTERVAL_MS);
     document.addEventListener("visibilitychange", poll);
 
@@ -135,7 +167,7 @@ export function AdminMessagesPage({
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", poll);
     };
-  }, [selectedId, refreshActiveMessages]);
+  }, [refreshInbox]);
 
   const handleSelectThread = (partnerId: string) => {
     setSelectedId(partnerId);
@@ -161,6 +193,18 @@ export function AdminMessagesPage({
       };
 
       setMessages((prev) => [...prev, optimisticMessage]);
+      setThreads((prev) =>
+        withUpdatedThreadPreview(
+          prev,
+          selectedId,
+          {
+            body,
+            sentAt: optimisticMessage.sentAt,
+            senderId: currentUserId,
+          },
+          { unreadCount: 0 },
+        ),
+      );
 
       const result = await sendMessageAction(selectedId, body);
       if (result.error) {
@@ -168,10 +212,10 @@ export function AdminMessagesPage({
         return { error: result.error };
       }
 
-      await refreshActiveMessages();
+      await refreshInbox();
       return {};
     },
-    [selectedId, currentUserId, refreshActiveMessages],
+    [selectedId, currentUserId, refreshInbox],
   );
 
   const activeThread = threads.find((t) => t.id === selectedId);
@@ -202,16 +246,15 @@ export function AdminMessagesPage({
             : "bg-white border-border-subtle/50 text-text-primary hover:bg-surface/40 hover:border-border-strong/20",
         )}
       >
-        <div
+        <Avatar
+          name={t.fullName}
+          src={t.avatarUrl}
+          size="sm"
           className={cn(
-            "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors",
-            active
-              ? "bg-brand-500 text-white"
-              : "bg-surface border border-border-strong/30 text-text-muted group-hover:bg-brand-50 group-hover:text-brand-500",
+            "flex-shrink-0 shadow-xs",
+            active ? "ring-2 ring-brand-500/40" : "border border-border-strong/30",
           )}
-        >
-          <User size={14} />
-        </div>
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <span
@@ -269,9 +312,6 @@ export function AdminMessagesPage({
         <header className="px-5 py-4 border-b border-border-strong/45 bg-white flex-shrink-0 space-y-3">
           <div>
             <h3 className="text-sm font-bold text-text-primary">Everyone</h3>
-            <p className="text-[10px] text-text-muted mt-0.5">
-              All recruiters and candidates — click to message
-            </p>
           </div>
           <div className="relative">
             <Search
@@ -330,6 +370,7 @@ export function AdminMessagesPage({
           <div className="flex-1 flex flex-col min-h-0 h-full">
             <ChatThread
               recruiterName={activeThread.fullName}
+              avatarUrl={activeThread.avatarUrl}
               messages={messages}
               onSend={handleSend}
               isStaff={true}
@@ -345,9 +386,6 @@ export function AdminMessagesPage({
               <MessageSquare size={20} />
             </div>
             <h4 className="text-sm font-bold text-text-primary">Select someone to message</h4>
-            <p className="text-xs text-text-muted mt-1 text-center max-w-sm">
-              Pick any recruiter or candidate on the left to open the thread and send a message.
-            </p>
           </Card>
         )}
       </div>

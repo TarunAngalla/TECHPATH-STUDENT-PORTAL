@@ -9,8 +9,13 @@ import {
   type AccountState,
 } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/auth/password";
+import { candidateAccountSetupUrl } from "@/lib/email";
 
 const DEFAULT_INVITE_TTL_HOURS = 48;
+
+function shouldStoreDevPreviewUrl() {
+  return process.env.NODE_ENV !== "production" || !process.env.RESEND_API_KEY?.trim();
+}
 
 export function hashCandidateInviteToken(token: string) {
   return createHash("sha256").update(token, "utf8").digest("hex");
@@ -37,7 +42,7 @@ export async function createCandidateInvite(input: {
   const invite = await db.transaction(async (tx) => {
     await tx
       .update(candidateInvites)
-      .set({ revokedAt: new Date() })
+      .set({ revokedAt: new Date(), devPreviewUrl: null })
       .where(
         and(
           eq(candidateInvites.candidateId, input.candidateId),
@@ -53,11 +58,13 @@ export async function createCandidateInvite(input: {
         tokenHash,
         expiresAt,
         createdBy: input.createdBy,
+        devPreviewUrl: shouldStoreDevPreviewUrl() ? candidateAccountSetupUrl(token) : null,
       })
       .returning({
         id: candidateInvites.id,
         candidateId: candidateInvites.candidateId,
         expiresAt: candidateInvites.expiresAt,
+        devPreviewUrl: candidateInvites.devPreviewUrl,
       });
     return created;
   });
@@ -120,6 +127,11 @@ export async function completeCandidateInvite(input: {
       });
 
     if (!invite) return null;
+
+    await tx
+      .update(candidateInvites)
+      .set({ devPreviewUrl: null })
+      .where(eq(candidateInvites.id, invite.id));
 
     const [candidate] = await tx
       .select({
@@ -184,7 +196,7 @@ export async function completeCandidateInvite(input: {
 export async function revokeCandidateInvites(candidateId: string) {
   const revoked = await db
     .update(candidateInvites)
-    .set({ revokedAt: new Date() })
+    .set({ revokedAt: new Date(), devPreviewUrl: null })
     .where(
       and(
         eq(candidateInvites.candidateId, candidateId),
@@ -204,6 +216,7 @@ export async function getLatestCandidateInvite(candidateId: string) {
       usedAt: candidateInvites.usedAt,
       revokedAt: candidateInvites.revokedAt,
       createdAt: candidateInvites.createdAt,
+      devPreviewUrl: candidateInvites.devPreviewUrl,
     })
     .from(candidateInvites)
     .where(eq(candidateInvites.candidateId, candidateId))
@@ -219,5 +232,10 @@ export async function getLatestCandidateInvite(candidateId: string) {
       : invite.expiresAt.getTime() <= now
         ? "expired"
         : "active";
-  return { ...invite, status } as const;
+  return {
+    ...invite,
+    status,
+    // Never expose stored setup URLs once the invite is no longer usable.
+    setupUrl: status === "active" && shouldStoreDevPreviewUrl() ? invite.devPreviewUrl : null,
+  } as const;
 }

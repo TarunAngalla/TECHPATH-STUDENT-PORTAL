@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, notInArray, or, sql, type SQL } from "drizzle-orm";
 import type { StaffScope } from "@/lib/auth/staff-scope";
 import type { ApplicationStatus } from "@/lib/constants/status-meta";
 import { db } from "@/lib/db";
@@ -79,4 +79,29 @@ export async function getApplicationOperationalMetrics(scope: StaffScope) {
     rejected: Number(row?.rejected ?? 0),
     overdue: Number(row?.overdue ?? 0),
   };
+}
+
+const CLOSED_STATUSES = ["hired", "rejected", "withdrawn", "closed", "draft"] as const;
+
+/** Applications staff can attach interview/assessment activity to. */
+export async function getStaffApplicationOptions(scope: StaffScope) {
+  const conditions: SQL[] = [notInArray(applications.status, [...CLOSED_STATUSES])];
+  if (!scope.seesAllCandidates && scope.recruiterId) {
+    conditions.push(eq(candidates.recruiterId, scope.recruiterId));
+  }
+
+  return db
+    .select({
+      id: applications.id,
+      candidateId: applications.candidateId,
+      candidateName: candidates.fullName,
+      companyName: applications.companyName,
+      roleTitle: applications.roleTitle,
+      appNo: applications.appNo,
+      status: applications.status,
+    })
+    .from(applications)
+    .innerJoin(candidates, eq(candidates.id, applications.candidateId))
+    .where(and(...conditions))
+    .orderBy(desc(applications.updatedAt));
 }

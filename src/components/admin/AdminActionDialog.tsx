@@ -27,8 +27,10 @@ export type AdminActionDialogProps = {
   danger?: boolean;
   pending?: boolean;
   error?: string | null;
+  dangerActionLabel?: string;
   onClose: () => void;
   onConfirm: (values: Record<string, string | boolean>) => void;
+  onDangerAction?: () => void;
 };
 
 export function AdminActionDialog({
@@ -41,8 +43,10 @@ export function AdminActionDialog({
   danger = false,
   pending = false,
   error = null,
+  dangerActionLabel,
   onClose,
   onConfirm,
+  onDangerAction,
 }: AdminActionDialogProps) {
   const titleId = useId();
   const [values, setValues] = useState<Record<string, string | boolean>>({});
@@ -197,20 +201,36 @@ export function AdminActionDialog({
             </p>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={pending}>
-              {cancelLabel}
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              variant={danger ? "danger" : "primary"}
-              loading={pending}
-              disabled={pending}
-              className={cn(!danger && "bg-brand-500 hover:bg-brand-600")}
-            >
-              {confirmLabel}
-            </Button>
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <div>
+              {dangerActionLabel && onDangerAction ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onDangerAction}
+                  disabled={pending}
+                  className="text-danger hover:bg-danger-soft hover:text-danger"
+                >
+                  {dangerActionLabel}
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={pending}>
+                {cancelLabel}
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                variant={danger ? "danger" : "primary"}
+                loading={pending}
+                disabled={pending}
+                className={cn(!danger && "bg-brand-500 hover:bg-brand-600")}
+              >
+                {confirmLabel}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

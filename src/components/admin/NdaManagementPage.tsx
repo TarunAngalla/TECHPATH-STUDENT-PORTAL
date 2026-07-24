@@ -89,9 +89,6 @@ export function NdaManagementPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-text-primary">NDA signatures</h2>
-          <p className="mt-1 text-sm text-text-muted">
-            Manage agreement versions, activation, signatures and secure signed copies.
-          </p>
         </div>
         <Button type="button" variant="outline" onClick={() => setShowCreate((value) => !value)}>
           <Plus size={15} /> New NDA template

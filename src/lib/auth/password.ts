@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { randomInt } from "crypto";
 import { eq, sql } from "drizzle-orm";
+import { getOrgEmailDomain } from "@/lib/config/org";
 import { db } from "@/lib/db";
 import { auditLog, candidates, passwordChangeLog, users, type AccountState } from "@/lib/db/schema";
 
@@ -107,8 +108,12 @@ export async function logAudit({
 }
 
 export function isAdminEmail(email: string) {
-  const domain = process.env.ADMIN_EMAIL_DOMAIN ?? "thetechpath.com";
-  return email.toLowerCase().endsWith(`@${domain}`);
+  try {
+    const domain = getOrgEmailDomain();
+    return email.toLowerCase().endsWith(`@${domain}`);
+  } catch {
+    return false;
+  }
 }
 
 export function generateTempPassword(length = 12) {

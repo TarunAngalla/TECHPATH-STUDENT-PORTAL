@@ -16,6 +16,7 @@ type CandidateRow = {
   applicationCount: number;
   lastActivity: Date;
   recruiterEmail: string | null;
+  avatarUrl?: string | null;
 };
 
 export function CandidatesTable({
@@ -91,7 +92,12 @@ export function CandidatesTable({
                   >
                     <td className="px-5 py-4">
                       <Link href={`/admin/candidates/${c.id}?tab=Messages`} className="flex items-center gap-3">
-                        <Avatar name={c.fullName} size="sm" className="shadow-xs border border-border-strong/30" />
+                        <Avatar
+                          name={c.fullName}
+                          src={c.avatarUrl}
+                          size="sm"
+                          className="shadow-xs border border-border-strong/30"
+                        />
                         <div>
                           <div className="text-sm font-bold text-text-primary leading-tight">{c.fullName}</div>
                           <span className={cn(

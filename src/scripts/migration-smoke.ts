@@ -52,7 +52,12 @@ async function main() {
 
     for (const file of migrationFiles) {
       const source = await readFile(path.join(migrationsDirectory, file), "utf8");
-      await sql.unsafe(source);
+      // Smoke runs inside an isolated schema via search_path. Drizzle sometimes emits
+      // schema-qualified "public"."table" FKs that miss those tables in CI.
+      const adapted = source
+        .replace(/REFERENCES\s+"public"\."([^"]+)"/gi, 'REFERENCES "$1"')
+        .replace(/REFERENCES\s+public\.([a-zA-Z_][\w]*)/gi, "REFERENCES $1");
+      await sql.unsafe(adapted);
     }
 
     await assertColumn(sql, "messages", "sender_id");
@@ -65,6 +70,7 @@ async function main() {
     await assertColumn(sql, "leads", "consultation_scheduled_at");
     await assertColumn(sql, "leads", "consultation_completed_at");
     await assertColumn(sql, "leads", "consultation_notes");
+    await assertColumn(sql, "leads", "consultation_meeting_link");
     await assertColumn(sql, "candidate_nda_agreements", "signing_provider");
     await assertColumn(sql, "candidate_nda_agreements", "provider_envelope_id");
     await assertColumn(sql, "candidate_nda_agreements", "signing_started_at");
@@ -98,6 +104,7 @@ async function main() {
       "public_request_rate_limits",
       "email_delivery_logs",
       "staff_profiles",
+      "candidate_section_views",
     ]) {
       await assertTable(sql, table);
     }

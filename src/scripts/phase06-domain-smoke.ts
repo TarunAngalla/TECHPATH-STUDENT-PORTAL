@@ -35,7 +35,7 @@ async function main() {
   const candidateItems = CANDIDATE_NAV_SECTIONS.flatMap((section) => section.items);
   assert.deepEqual(
     candidateItems.map((item) => item.key),
-    ["dashboard", "progress", "trainings", "interview-details", "assessments", "announcements", "resources", "settings"],
+    ["dashboard", "progress", "trainings", "interview-details", "assessments", "announcements", "messages", "resources", "settings"],
     "Candidate primary navigation does not match the client-aligned view",
   );
 

@@ -8,7 +8,10 @@ import { serverFeatures } from "@/lib/config/features";
 import { db } from "@/lib/db";
 import { assertCandidateInScope } from "@/lib/db/queries/admin/candidates";
 import { documentCategories, documents } from "@/lib/db/schema";
-import { deleteStorageFile, uploadDocumentFile } from "@/lib/storage/supabase";
+import {
+  removeStoredDocument,
+  storeCandidateDocument,
+} from "@/lib/storage/documents";
 
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const ALLOWED_DOCUMENT_TYPES = new Set([
@@ -35,11 +38,22 @@ export async function uploadDocument(formData: FormData) {
   if (!parsed.success || !file) return { error: "Invalid input" };
   if (!(await assertCandidateInScope(parsed.data.candidateId, getStaffScope(staff)))) return { error: "Forbidden" };
   const fileError = validateFile(file); if (fileError) return { error: fileError };
-  const storagePath = await uploadDocumentFile(parsed.data.candidateId, file.name, Buffer.from(await file.arrayBuffer()), file.type);
-  await db.insert(documents).values({
-    candidateId: parsed.data.candidateId, name: parsed.data.name,
-    category: parsed.data.category as (typeof documentCategories)[number], storagePath, fileUrl: null,
-  });
+  try {
+    const stored = await storeCandidateDocument({
+      candidateId: parsed.data.candidateId,
+      filename: file.name,
+      buffer: Buffer.from(await file.arrayBuffer()),
+      contentType: file.type,
+    });
+    await db.insert(documents).values({
+      candidateId: parsed.data.candidateId, name: parsed.data.name,
+      category: parsed.data.category as (typeof documentCategories)[number],
+      storagePath: stored.path,
+      fileUrl: null,
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Upload failed" };
+  }
   revalidatePath("/resources"); revalidatePath(`/admin/candidates/${parsed.data.candidateId}`); return {};
 }
 export async function deleteDocument(documentId: string) {
@@ -47,7 +61,7 @@ export async function deleteDocument(documentId: string) {
   const [doc] = await db.select().from(documents).where(eq(documents.id, documentId)).limit(1);
   if (!doc) return { error: "Not found" };
   if (!(await assertCandidateInScope(doc.candidateId, getStaffScope(staff)))) return { error: "Forbidden" };
-  await deleteStorageFile(doc.storagePath ?? doc.fileUrl);
+  await removeStoredDocument(doc.storagePath ?? doc.fileUrl);
   await db.delete(documents).where(eq(documents.id, documentId));
   revalidatePath("/resources"); revalidatePath(`/admin/candidates/${doc.candidateId}`); return {};
 }
@@ -57,7 +71,22 @@ export async function uploadResumeAsCandidate(formData: FormData) {
   const file = formData.get("file") as File | null;
   if (!file) return { error: "No file provided" };
   const fileError = validateFile(file); if (fileError) return { error: fileError };
-  const storagePath = await uploadDocumentFile(session.candidateId!, file.name, Buffer.from(await file.arrayBuffer()), file.type);
-  await db.insert(documents).values({ candidateId: session.candidateId!, name: file.name, category: "resume", storagePath, fileUrl: null });
+  try {
+    const stored = await storeCandidateDocument({
+      candidateId: session.candidateId!,
+      filename: file.name,
+      buffer: Buffer.from(await file.arrayBuffer()),
+      contentType: file.type,
+    });
+    await db.insert(documents).values({
+      candidateId: session.candidateId!,
+      name: file.name,
+      category: "resume",
+      storagePath: stored.path,
+      fileUrl: null,
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Upload failed" };
+  }
   revalidatePath("/resources"); revalidatePath("/dashboard"); return {};
 }

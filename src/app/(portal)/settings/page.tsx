@@ -4,6 +4,7 @@ import { getCandidateContext } from "@/lib/candidate-context";
 import { serverFeatures } from "@/lib/config/features";
 import { db } from "@/lib/db";
 import { passwordChangeLog, users } from "@/lib/db/schema";
+import { resolveAvatarUrl } from "@/lib/storage/avatars";
 
 export default async function SettingsPage() {
   const { candidate, session } = await getCandidateContext();
@@ -26,11 +27,14 @@ export default async function SettingsPage() {
     .orderBy(desc(passwordChangeLog.changedAt))
     .limit(1);
 
+  const avatarUrl = await resolveAvatarUrl(candidate.avatarPath);
+
   return (
     <CandidateSettingsPage
       fullName={candidate.fullName}
       email={user?.email ?? ""}
       phone={candidate.phone ?? ""}
+      avatarUrl={avatarUrl}
       lastAdminReset={lastAdminReset?.changedAt ?? null}
       allowPhoneEdit={serverFeatures.candidatePhoneEdit}
     />

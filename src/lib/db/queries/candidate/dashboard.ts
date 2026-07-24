@@ -1,9 +1,7 @@
-import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { INTERVIEW_COMPLETED_STATUSES, UPCOMING_EVENT_STATUSES, summarizeApplicationActivities, type ApplicationEventStatus } from "@/lib/constants/application-activity";
 import { db } from "@/lib/db";
 import {
-  announcements,
-  announcementReads,
   applicationEvents,
   applications,
   candidates,
@@ -15,6 +13,7 @@ import {
 import { getUnreadMessageCount as getUnreadForUser } from "@/lib/db/queries/shared/messages";
 import { getCandidateVisibleApplicationsByCandidateId } from "@/lib/db/queries/shared/applications";
 
+export { getAnnouncementsForCandidate } from "@/lib/db/queries/shared/announcements";
 export { getCandidateByUserId } from "./candidate-helpers";
 
 export async function getDashboardStatsForCandidate(candidateId: string) {
@@ -105,29 +104,6 @@ export async function getDashboardStatsForCandidate(candidateId: string) {
 
 export async function getUnreadMessageCount(_candidateId: string, userId: string) {
   return getUnreadForUser(userId);
-}
-
-export async function getAnnouncementsForCandidate(candidateId: string) {
-  const rows = await db
-    .select({
-      id: announcements.id,
-      title: announcements.title,
-      body: announcements.body,
-      createdAt: announcements.createdAt,
-      readAt: announcementReads.readAt,
-    })
-    .from(announcements)
-    .leftJoin(
-      announcementReads,
-      and(
-        eq(announcementReads.announcementId, announcements.id),
-        eq(announcementReads.candidateId, candidateId),
-      ),
-    )
-    .where(or(sql`${announcements.targetCandidateId} IS NULL`, eq(announcements.targetCandidateId, candidateId)))
-    .orderBy(desc(announcements.createdAt));
-
-  return rows.map((r) => ({ ...r, isRead: Boolean(r.readAt) }));
 }
 
 export async function getLatestPasswordChange(userId: string) {

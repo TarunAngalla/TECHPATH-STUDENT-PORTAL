@@ -48,10 +48,8 @@ function ResumeUploadZone() {
     <Card variant="glass" className="p-6 mb-6 bg-white border border-border-strong/50 shadow-xs rounded-2xl">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h3 className="text-sm font-bold text-text-primary leading-tight">Upload your resume</h3>
-          <p className="text-xs text-text-muted mt-1.5 leading-relaxed font-medium">
-            Upload your latest resume (PDF, DOC, or DOCX up to 5MB) for recruiter marketing.
-          </p>
+          <h3 className="text-sm font-bold text-text-primary leading-tight">Upload resume</h3>
+          <p className="text-xs text-text-muted mt-1.5">PDF, DOC, or DOCX · max 5 MB</p>
         </div>
         <div className="flex-shrink-0">
           <input

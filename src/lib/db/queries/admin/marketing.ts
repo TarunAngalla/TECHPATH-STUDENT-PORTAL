@@ -2,12 +2,14 @@ import { and, count, desc, eq, inArray, ne } from "drizzle-orm";
 import type { StaffScope } from "@/lib/auth/staff-scope";
 import { db } from "@/lib/db";
 import { applicationEvents, applications, candidates, staffProfiles, users } from "@/lib/db/schema";
+import { resolveAvatarUrl } from "@/lib/storage/avatars";
 
 export async function getMarketingProgressRows(scope: StaffScope) {
   const rows = await db
     .select({
       candidateId: candidates.id,
       candidateName: candidates.fullName,
+      candidateAvatarPath: candidates.avatarPath,
       journeyStage: candidates.journeyStage,
       marketingStatus: candidates.marketingStatus,
       marketingReadyAt: candidates.marketingReadyAt,
@@ -49,14 +51,19 @@ export async function getMarketingProgressRows(scope: StaffScope) {
     : [];
 
   const appMap = new Map(applicationCounts.map((row) => [row.candidateId, Number(row.total)]));
-  return rows.map((row) => {
-    const activities = activityRows.filter((event) => event.candidateId === row.candidateId);
-    return {
-      ...row,
-      applications: appMap.get(row.candidateId) ?? 0,
-      interviews: activities.filter((event) => event.eventType === "interview").length,
-      assessments: activities.filter((event) => event.eventType === "assessment").length,
-      pendingFeedback: activities.filter((event) => ["feedback_pending", "result_pending"].includes(event.status)).length,
-    };
-  });
+  return Promise.all(
+    rows.map(async (row) => {
+      const activities = activityRows.filter((event) => event.candidateId === row.candidateId);
+      return {
+        ...row,
+        avatarUrl: await resolveAvatarUrl(row.candidateAvatarPath),
+        applications: appMap.get(row.candidateId) ?? 0,
+        interviews: activities.filter((event) => event.eventType === "interview").length,
+        assessments: activities.filter((event) => event.eventType === "assessment").length,
+        pendingFeedback: activities.filter((event) =>
+          ["feedback_pending", "result_pending"].includes(event.status),
+        ).length,
+      };
+    }),
+  );
 }

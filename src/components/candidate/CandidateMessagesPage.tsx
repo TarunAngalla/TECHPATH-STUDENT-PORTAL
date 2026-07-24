@@ -4,23 +4,27 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   fetchConversation,
+  getChatThreadsAction,
   markConversationReadAction,
   sendMessageAction,
 } from "@/lib/actions/messages";
 import { ChatThread } from "@/components/shared/ChatThread";
 import type { ChatMessage } from "@/components/shared/ChatThread";
 import { Badge, Card } from "@/components/ui";
+import { withUpdatedThreadPreview } from "@/lib/messaging/thread-list";
+import { notifyMessagesRead } from "@/lib/hooks/useUnreadMessageCount";
 import { MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { formatDateTime } from "@/lib/utils/dates";
 
-const POLL_INTERVAL_MS = 10_000;
+const POLL_INTERVAL_MS = 4_000;
 
 type ChatThreadInfo = {
   id: string;
   fullName: string;
   email: string;
   role: string;
+  avatarUrl?: string | null;
   latestMessage: {
     body: string;
     sentAt: Date | string;
@@ -55,7 +59,14 @@ export function CandidateMessagesPage({
 }: {
   threads: ChatThreadInfo[];
   selectedPartnerId: string | null;
-  initialMessages: { id: string; senderId: string; receiverId: string; body: string; sentAt: Date }[];
+  initialMessages: {
+    id: string;
+    senderId: string;
+    receiverId: string;
+    body: string;
+    sentAt: Date;
+    seenAt?: Date | string | null;
+  }[];
   currentUserId: string;
 }) {
   const router = useRouter();
@@ -75,6 +86,7 @@ export function CandidateMessagesPage({
         sentAt: m.sentAt,
         senderId: m.senderId,
         receiverId: m.receiverId,
+        seenAt: m.seenAt ?? null,
       }));
     },
     [currentUserId],
@@ -92,37 +104,58 @@ export function CandidateMessagesPage({
     setMessages((current) => mergeWithOptimistic(mapMessages(initialMessages), current, currentUserId));
   }, [initialMessages, mapMessages, currentUserId]);
 
-  const refreshActiveMessages = useCallback(async () => {
-    if (!selectedId) return;
-    const result = await fetchConversation(selectedId);
-    if (result.messages) {
-      const mapped: ChatMessage[] = result.messages.map((m) => ({
+  const refreshInbox = useCallback(async () => {
+    if (selectedId) {
+      const result = await markConversationReadAction(selectedId);
+      if (result.marked > 0) {
+        notifyMessagesRead();
+      }
+    }
+
+    const [threadsResult, conversationResult] = await Promise.all([
+      getChatThreadsAction(),
+      selectedId ? fetchConversation(selectedId) : Promise.resolve(null),
+    ]);
+
+    if (threadsResult.threads) {
+      setThreads(
+        threadsResult.threads.map((t) =>
+          selectedId && t.id === selectedId ? { ...t, unreadCount: 0 } : t,
+        ),
+      );
+    }
+
+    if (selectedId && conversationResult?.messages) {
+      const mapped: ChatMessage[] = conversationResult.messages.map((m) => ({
         ...m,
         senderRole: (m.senderId === currentUserId ? "candidate" : "recruiter") as
           | "candidate"
           | "recruiter",
+        seenAt: m.seenAt ?? null,
       }));
       setMessages((current) => mergeWithOptimistic(mapped, current, currentUserId));
     }
   }, [selectedId, currentUserId]);
 
   useEffect(() => {
-    if (selectedId) {
-      void markConversationReadAction(selectedId);
-      setThreads((current) =>
-        current.map((t) => (t.id === selectedId ? { ...t, unreadCount: 0 } : t)),
-      );
-    }
-  }, [selectedId]);
+    if (!selectedId) return;
+    void markConversationReadAction(selectedId).then(() => {
+      notifyMessagesRead();
+      router.refresh();
+    });
+    setThreads((current) =>
+      current.map((t) => (t.id === selectedId ? { ...t, unreadCount: 0 } : t)),
+    );
+  }, [selectedId, router]);
 
   useEffect(() => {
-    if (!selectedId) return;
     const poll = () => {
       if (document.visibilityState === "visible") {
-        void refreshActiveMessages();
+        void refreshInbox();
       }
     };
 
+    void poll();
     const intervalId = window.setInterval(poll, POLL_INTERVAL_MS);
     document.addEventListener("visibilitychange", poll);
 
@@ -130,7 +163,7 @@ export function CandidateMessagesPage({
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", poll);
     };
-  }, [selectedId, refreshActiveMessages]);
+  }, [refreshInbox]);
 
   const handleSelectThread = (partnerId: string) => {
     setSelectedId(partnerId);
@@ -156,6 +189,18 @@ export function CandidateMessagesPage({
       };
 
       setMessages((prev) => [...prev, optimisticMessage]);
+      setThreads((prev) =>
+        withUpdatedThreadPreview(
+          prev,
+          selectedId,
+          {
+            body,
+            sentAt: optimisticMessage.sentAt,
+            senderId: currentUserId,
+          },
+          { unreadCount: 0 },
+        ),
+      );
 
       const result = await sendMessageAction(selectedId, body);
       if (result.error) {
@@ -163,10 +208,10 @@ export function CandidateMessagesPage({
         return { error: result.error };
       }
 
-      await refreshActiveMessages();
+      await refreshInbox();
       return {};
     },
-    [selectedId, currentUserId, refreshActiveMessages],
+    [selectedId, currentUserId, refreshInbox],
   );
 
   const activeThread = threads.find((t) => t.id === selectedId);
@@ -177,7 +222,6 @@ export function CandidateMessagesPage({
       <div className="lg:col-span-4 flex flex-col min-h-0 h-full bg-white border border-border-strong/50 rounded-2xl shadow-xs overflow-hidden">
         <header className="px-5 py-4 border-b border-border-strong/45 bg-white flex-shrink-0">
           <h3 className="text-sm font-bold text-text-primary">Conversations</h3>
-          <p className="text-[10px] text-text-muted mt-0.5">Chat with Admin or your assigned Recruiter</p>
         </header>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-1.5 min-h-0">
@@ -266,6 +310,7 @@ export function CandidateMessagesPage({
           <div className="flex-1 flex flex-col min-h-0 h-full">
             <ChatThread
               recruiterName={activeThread.fullName}
+              avatarUrl={activeThread.avatarUrl}
               messages={messages}
               onSend={handleSend}
             />
@@ -278,10 +323,7 @@ export function CandidateMessagesPage({
             <div className="w-12 h-12 rounded-full bg-brand-50 flex items-center justify-center mb-4 text-brand-500 shadow-inner">
               <MessageSquare size={20} />
             </div>
-            <h3 className="text-sm font-bold text-text-primary mb-1">Select a Conversation</h3>
-            <p className="text-xs text-text-muted text-center max-w-sm leading-relaxed">
-              Choose a contact from the sidebar to view message history and send a new message.
-            </p>
+            <h3 className="text-sm font-bold text-text-primary">Select a conversation</h3>
           </Card>
         )}
       </div>

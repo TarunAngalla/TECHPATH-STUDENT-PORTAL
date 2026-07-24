@@ -34,6 +34,7 @@ export default async function MessagesPage({
         receiverId: m.receiverId,
         body: m.body,
         sentAt: m.sentAt,
+        seenAt: m.seenAt,
       }))}
       currentUserId={session.userId}
     />

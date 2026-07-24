@@ -20,6 +20,7 @@ import {
 } from "@/lib/db/schema";
 import { sendCandidateInviteEmail } from "@/lib/email";
 import { serverFeatures } from "@/lib/config/features";
+import { getOrgEmailDomain, isOrgEmailAddress } from "@/lib/config/org";
 import { createCandidateInvite } from "@/lib/services/candidate-invites";
 import { assignRecruiterAction, unassignRecruiterAction } from "@/lib/actions/recruiter-assignments";
 import { updateCandidateJourneyStageAction } from "@/lib/actions/marketing";
@@ -27,9 +28,95 @@ import { updateCandidateJourneyStageAction } from "@/lib/actions/marketing";
 const createSchema = z.object({
   leadId: z.string().uuid(),
   fullName: z.string().trim().min(1).max(120),
+  /** Portal login email — may differ from the enquiry personal email. */
+  loginEmail: z.string().trim().email("Enter a valid login email.").max(254),
   optType: z.enum(["OPT", "STEM_OPT"]),
   recruiterId: z.string().uuid().optional(),
 });
+
+function emailLocalPartFromName(fullName: string) {
+  const slug = fullName
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\w\s.-]/g, "")
+    .trim()
+    .replace(/[\s_]+/g, ".")
+    .replace(/\.+/g, ".")
+    .replace(/^\.+|\.+$/g, "")
+    .slice(0, 40);
+  return slug || "candidate";
+}
+
+async function findAvailableLoginEmail(fullName: string, preferredEmail?: string) {
+  const domain = getOrgEmailDomain();
+  const preferred = preferredEmail?.trim().toLowerCase();
+  const candidates: string[] = [];
+
+  const base = emailLocalPartFromName(fullName);
+  // Company-domain logins only — never personal enquiry emails.
+  if (preferred && preferred.endsWith(`@${domain}`)) {
+    candidates.push(preferred);
+  }
+  candidates.push(`${base}@${domain}`);
+  for (let i = 2; i <= 30; i++) {
+    candidates.push(`${base}${i}@${domain}`);
+  }
+
+  const unique = [...new Set(candidates)];
+  for (const email of unique) {
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+    if (!existing) return email;
+  }
+
+  return `${base}.${Date.now().toString(36)}@${domain}`;
+}
+
+export async function suggestCandidateLoginEmail(fullName: string, preferredEmail?: string) {
+  await requireAdminAuth();
+  const preferred =
+    preferredEmail && isOrgEmailAddress(preferredEmail) ? preferredEmail : undefined;
+  const suggestion = await findAvailableLoginEmail(fullName, preferred);
+  return { email: suggestion, domain: getOrgEmailDomain() };
+}
+
+export async function checkCandidateLoginEmail(email: string) {
+  await requireAdminAuth();
+  const parsed = z.string().trim().email().max(254).safeParse(email);
+  if (!parsed.success) {
+    return { available: false as const, error: "Enter a valid email address." };
+  }
+
+  const loginEmail = parsed.data.toLowerCase();
+  const domain = getOrgEmailDomain();
+  if (!loginEmail.endsWith(`@${domain}`)) {
+    return {
+      available: false as const,
+      email: loginEmail,
+      error: `Portal login must use your company domain (@${domain}), not a personal email.`,
+    };
+  }
+
+  const [existing] = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(eq(users.email, loginEmail))
+    .limit(1);
+
+  if (!existing) {
+    return { available: true as const, email: loginEmail };
+  }
+
+  const roleLabel =
+    existing.role === "admin" || existing.role === "recruiter"
+      ? "a staff account"
+      : "another portal account";
+
+  return {
+    available: false as const,
+    email: loginEmail,
+    error: `${loginEmail} is already used by ${roleLabel}. Rename the login email and try again.`,
+  };
+}
 
 export async function createCandidateFromLead(data: z.infer<typeof createSchema>) {
   const admin = await requireAdminAuth();
@@ -37,7 +124,22 @@ export async function createCandidateFromLead(data: z.infer<typeof createSchema>
     return { error: "Secure invitations are disabled. Enable ENABLE_SECURE_INVITES." };
   }
   const parsed = createSchema.safeParse(data);
-  if (!parsed.success) return { error: "Invalid input." };
+  if (!parsed.success) return { error: parsed.error.errors[0]?.message ?? "Invalid input." };
+
+  const loginEmail = parsed.data.loginEmail.toLowerCase();
+  let domain: string;
+  try {
+    domain = getOrgEmailDomain();
+  } catch {
+    return {
+      error: "Company email domain is not configured. Set ORG_EMAIL_DOMAIN in the environment.",
+    };
+  }
+  if (!loginEmail.endsWith(`@${domain}`)) {
+    return {
+      error: `Portal login must be a @${domain} address (not a personal email).`,
+    };
+  }
 
   const [lead] = await db.select().from(leads).where(eq(leads.id, parsed.data.leadId)).limit(1);
   if (!lead || lead.status !== "qualified") {
@@ -45,11 +147,21 @@ export async function createCandidateFromLead(data: z.infer<typeof createSchema>
   }
 
   const [existingUser] = await db
-    .select({ id: users.id })
+    .select({ id: users.id, role: users.role })
     .from(users)
-    .where(eq(users.email, lead.email.toLowerCase()))
+    .where(eq(users.email, loginEmail))
     .limit(1);
-  if (existingUser) return { error: "A portal user already exists for this email address." };
+  if (existingUser) {
+    const suggestion = await findAvailableLoginEmail(parsed.data.fullName, loginEmail);
+    const roleLabel =
+      existingUser.role === "admin" || existingUser.role === "recruiter"
+        ? "a staff account"
+        : "another portal account";
+    return {
+      error: `${loginEmail} is already used by ${roleLabel}. Rename it — for example try ${suggestion}.`,
+      suggestion,
+    };
+  }
 
   let recruiterId: string | null = null;
   if (parsed.data.recruiterId) {
@@ -101,7 +213,7 @@ export async function createCandidateFromLead(data: z.infer<typeof createSchema>
     const [user] = await tx
       .insert(users)
       .values({
-        email: lead.email.toLowerCase(),
+        email: loginEmail,
         passwordHash: unusablePasswordHash,
         role: "candidate",
         firstLogin: true,

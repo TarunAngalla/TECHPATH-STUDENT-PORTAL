@@ -138,6 +138,8 @@ function revalidateApplication(candidateId: string, applicationId?: string) {
   revalidatePath("/upcoming");
   revalidatePath("/dashboard");
   revalidatePath("/progress");
+  revalidatePath("/announcements");
+  revalidatePath("/", "layout");
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/applications");
   revalidatePath(`/admin/candidates/${candidateId}`);

@@ -20,9 +20,6 @@ export function ForcedPasswordResetForm() {
             <Lock size={18} />
           </div>
           <h1 className="text-2xl font-bold text-text-primary">Set a new password</h1>
-          <p className="text-sm text-text-muted mt-1">
-            For security, you must choose your own password before continuing.
-          </p>
         </div>
 
         <form action={formAction} className="space-y-4">

@@ -7,12 +7,14 @@ import { formatDate, formatIsoTimestampsInText } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 
 export function AnnouncementCard({
+  id,
   title,
   body,
   createdAt,
   isRead,
   onMarkRead,
 }: {
+  id?: string;
   title: string;
   body: string;
   createdAt: Date | string;
@@ -22,9 +24,10 @@ export function AnnouncementCard({
   const displayBody = formatIsoTimestampsInText(body);
   return (
     <Card
+      id={id}
       variant="glass"
       className={cn(
-        "relative overflow-hidden p-5 bg-white shadow-xs rounded-2xl transition-all duration-200 hover:border-border-strong border",
+        "relative overflow-hidden p-5 bg-white shadow-xs rounded-2xl transition-all duration-200 hover:border-border-strong border scroll-mt-24",
         isRead ? "border-border-strong/40" : "border-border-strong/60 border-l-4 border-l-brand-500 bg-brand-50/5 cursor-pointer"
       )}
       aria-label={isRead ? undefined : `Unread announcement: ${title}`}

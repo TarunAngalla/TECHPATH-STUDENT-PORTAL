@@ -14,6 +14,7 @@ import {
   type ApplicationEventStatus,
 } from "@/lib/constants/application-activity";
 import type { ApplicationStatus } from "@/lib/constants/status-meta";
+import { STATUS_META } from "@/lib/constants/status-meta";
 import { formatDisplayTimestamp } from "@/lib/utils/dates";
 
 
@@ -290,6 +291,19 @@ export async function updateApplicationWithStatusEvent(input: {
         createdBy: input.actorUserId,
       });
       await advanceJourneyForApplication(tx, updated.candidateId, input.status, input.actorUserId);
+
+      const previousLabel = STATUS_META[existing.status as ApplicationStatus]?.label ?? existing.status;
+      const nextLabel = STATUS_META[input.status]?.label ?? input.status;
+      await tx
+        .insert(announcements)
+        .values({
+          title: "Application status updated",
+          body: `${updated.companyName} · ${updated.roleTitle}: ${previousLabel} → ${nextLabel}`,
+          targetCandidateId: updated.candidateId,
+          sourceKey: `application-status:${updated.id}:${input.status}:${Date.now()}`,
+          createdBy: input.actorUserId,
+        })
+        .onConflictDoNothing();
     }
 
     await tx.insert(auditLog).values({
@@ -410,21 +424,46 @@ export async function createApplicationActivity(input: {
         candidateVisible: true,
         createdBy: input.actorUserId,
       });
+      const previousLabel = STATUS_META[application.status as ApplicationStatus]?.label ?? application.status;
+      const nextLabel = STATUS_META[nextStatus]?.label ?? nextStatus;
+      await tx
+        .insert(announcements)
+        .values({
+          title: "Application status updated",
+          body: `${application.companyName} · ${application.roleTitle}: ${previousLabel} → ${nextLabel}`,
+          targetCandidateId: application.candidateId,
+          sourceKey: `application-status:${application.id}:${nextStatus}:${input.eventKey}`,
+          createdBy: input.actorUserId,
+        })
+        .onConflictDoNothing();
     }
     await advanceJourneyForApplication(tx, application.candidateId, nextStatus, input.actorUserId);
     await syncLegacyUpcomingSummary(tx, input.applicationId);
 
     if (input.candidateVisible !== false) {
+      const scheduledLike = ["scheduled", "confirmed", "rescheduled"].includes(input.status);
       const when = input.scheduledAt
         ? ` · ${formatDisplayTimestamp(input.scheduledAt, input.timezone ?? "UTC")}`
         : "";
-      await tx.insert(announcements).values({
-        title: input.eventType === "interview" ? "Interview update" : "Assessment update",
-        body: `${application.companyName} · ${input.title}${when}`,
-        targetCandidateId: application.candidateId,
-        sourceKey: `application-event:${event.id}:created`,
-        createdBy: input.actorUserId,
-      }).onConflictDoNothing();
+      const withWho = input.withPerson?.trim() ? ` · with ${input.withPerson.trim()}` : "";
+      const title =
+        input.eventType === "interview"
+          ? scheduledLike
+            ? "Interview scheduled"
+            : "Interview update"
+          : scheduledLike
+            ? "Assessment scheduled"
+            : "Assessment update";
+      await tx
+        .insert(announcements)
+        .values({
+          title,
+          body: `${application.companyName} · ${application.roleTitle} · ${input.title}${when}${withWho}`,
+          targetCandidateId: application.candidateId,
+          sourceKey: `application-event:${event.id}:created`,
+          createdBy: input.actorUserId,
+        })
+        .onConflictDoNothing();
     }
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,
@@ -488,18 +527,36 @@ export async function updateApplicationActivity(input: {
       (input.scheduledAt !== undefined && String(input.scheduledAt ?? "") !== String(existing.scheduledAt ?? ""));
     if (materialUpdate && existing.candidateVisible) {
       const [application] = await tx
-        .select({ companyName: applications.companyName })
+        .select({
+          companyName: applications.companyName,
+          roleTitle: applications.roleTitle,
+        })
         .from(applications)
         .where(eq(applications.id, existing.applicationId))
         .limit(1);
+      const scheduledLike = ["scheduled", "confirmed", "rescheduled"].includes(updated.status);
       const notificationKey = `application-event:${existing.id}:${updated.status}:${updated.scheduledAt?.toISOString() ?? "none"}`;
-      await tx.insert(announcements).values({
-        title: existing.eventType === "interview" ? "Interview updated" : "Assessment updated",
-        body: `${application?.companyName ?? "Application"} · ${updated.title} · ${updated.status.replaceAll("_", " ")}`,
-        targetCandidateId: existing.candidateId,
-        sourceKey: notificationKey,
-        createdBy: input.actorUserId,
-      }).onConflictDoNothing();
+      const title =
+        existing.eventType === "interview"
+          ? scheduledLike
+            ? "Interview scheduled"
+            : "Interview updated"
+          : scheduledLike
+            ? "Assessment scheduled"
+            : "Assessment updated";
+      const when = updated.scheduledAt
+        ? ` · ${formatDisplayTimestamp(updated.scheduledAt, updated.timezone ?? "UTC")}`
+        : "";
+      await tx
+        .insert(announcements)
+        .values({
+          title,
+          body: `${application?.companyName ?? "Application"} · ${application?.roleTitle ?? "Role"} · ${updated.title}${when} · ${updated.status.replaceAll("_", " ")}`,
+          targetCandidateId: existing.candidateId,
+          sourceKey: notificationKey,
+          createdBy: input.actorUserId,
+        })
+        .onConflictDoNothing();
     }
     await tx.insert(auditLog).values({
       actorUserId: input.actorUserId,

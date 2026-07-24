@@ -21,6 +21,7 @@ import { getLatestCandidateInvite } from "@/lib/services/candidate-invites";
 import { getRecruiterAssignmentHistory } from "@/lib/services/recruiter-assignments";
 import { getMarketingReadiness } from "@/lib/services/candidate-journey";
 import { getCandidateJourneyHistoryForStaff } from "@/lib/db/queries/admin/assignments";
+import { resolveAvatarUrl } from "@/lib/storage/avatars";
 
 const VALID_TABS = [
   "Profile",
@@ -96,7 +97,10 @@ export default async function AdminCandidateDetailPage({
 
   return (
     <CandidateDetailPage
-      candidate={candidate}
+      candidate={{
+        ...candidate,
+        avatarUrl: await resolveAvatarUrl(candidate.avatarPath),
+      }}
       recruiters={recruiters}
       applications={applications}
       documents={documents}

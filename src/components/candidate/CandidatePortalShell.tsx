@@ -6,6 +6,9 @@ import { useState } from "react";
 import type { Application } from "@/lib/db/schema";
 import { CANDIDATE_PAGE_TITLES, type CandidateNavKey } from "@/lib/constants/candidate-nav";
 import { useScrollToTopOnRouteChange } from "@/lib/hooks/useScrollToTopOnRouteChange";
+import { useUnreadMessageCount } from "@/lib/hooks/useUnreadMessageCount";
+import { useCandidateAnnouncements } from "@/lib/hooks/useCandidateAnnouncements";
+import { useCandidateActivityBadges } from "@/lib/hooks/useCandidateActivityBadges";
 import { cn } from "@/lib/utils/cn";
 import { PageTransition } from "@/components/motion/PageTransition";
 import { CandidateSidebar } from "./CandidateSidebar";
@@ -20,20 +23,29 @@ function pathToNavKey(pathname: string): CandidateNavKey {
 export function CandidatePortalShell({
   children,
   candidateName,
+  candidateAvatarUrl = null,
+  candidateId = null,
   messageBadge,
   unreadAnnouncements,
   announcements,
   applications,
+  activityBadges = { interviews: 0, assessments: 0 },
 }: {
   children: React.ReactNode;
   candidateName: string;
+  candidateAvatarUrl?: string | null;
+  candidateId?: string | null;
   messageBadge: number;
   unreadAnnouncements: number;
   announcements: { id: string; title: string; createdAt: Date | string; isRead: boolean }[];
   applications: Application[];
+  activityBadges?: { interviews: number; assessments: number };
 }) {
   const pathname = usePathname();
   useScrollToTopOnRouteChange();
+  const liveMessageBadge = useUnreadMessageCount(messageBadge);
+  const liveAnnouncements = useCandidateAnnouncements(unreadAnnouncements, announcements);
+  const liveActivityBadges = useCandidateActivityBadges(activityBadges);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const navKey = pathToNavKey(pathname);
@@ -51,7 +63,9 @@ export function CandidatePortalShell({
       <CandidateSidebar
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
-        messageBadge={messageBadge}
+        messageBadge={liveMessageBadge}
+        interviewBadge={liveActivityBadges.interviews}
+        assessmentBadge={liveActivityBadges.assessments}
         collapsed={collapsed}
       />
       <div
@@ -66,9 +80,11 @@ export function CandidatePortalShell({
           title={title}
           setMobileOpen={setMobileOpen}
           candidateName={candidateName}
-          unreadAnnouncements={unreadAnnouncements}
-          unreadMessages={messageBadge}
-          announcements={announcements}
+          candidateAvatarUrl={candidateAvatarUrl}
+          candidateId={candidateId}
+          unreadAnnouncements={liveAnnouncements.unreadCount}
+          unreadMessages={liveMessageBadge}
+          announcements={liveAnnouncements.announcements}
           applications={applications}
           collapsed={collapsed}
           setCollapsed={setCollapsed}

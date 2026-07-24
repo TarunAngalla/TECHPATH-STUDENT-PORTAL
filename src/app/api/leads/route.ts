@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { submitTrustedEnquiry } from "@/lib/services/public-enquiries";
 import { logger } from "@/lib/observability/logger";
+import { EXPERIENCE_YEARS_PATTERN } from "@/lib/utils/experience";
 import { getOrCreateRequestId } from "@/lib/observability/request-id";
 
 const leadSchema = z.object({
@@ -10,7 +11,14 @@ const leadSchema = z.object({
   phone: z.string().trim().max(40).optional(),
   optType: z.enum(["OPT", "STEM_OPT"]).optional(),
   roleInterest: z.string().trim().min(2).max(160).default("General candidate enquiry"),
-  experienceSummary: z.string().trim().max(1200).optional(),
+  experienceSummary: z
+    .string()
+    .trim()
+    .max(40)
+    .refine((value) => !value || EXPERIENCE_YEARS_PATTERN.test(value), {
+      message: "Enter experience in years (e.g. 3).",
+    })
+    .optional(),
   additionalInformation: z.string().trim().max(2000).optional(),
 });
 
@@ -55,9 +63,21 @@ export async function POST(request: Request) {
       experienceSummary: parsed.data.experienceSummary ?? "",
       additionalInformation: parsed.data.additionalInformation ?? "",
     });
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          created: false,
+          error: result.error,
+          code: result.code,
+          id: result.leadId,
+        },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
-      { id: result.leadId, ok: true, created: result.created },
-      { status: result.created ? 201 : 200 },
+      { id: result.leadId, ok: true, created: true },
+      { status: 201 },
     );
   } catch (error) {
     logger.error("trusted_lead.intake_failed", error, { requestId });

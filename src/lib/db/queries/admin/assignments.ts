@@ -66,6 +66,7 @@ export async function getAssignmentWorkQueue(scope: StaffScope) {
       assignmentId: candidateRecruiterAssignments.id,
       candidateId: candidates.id,
       candidateName: candidates.fullName,
+      candidateAvatarPath: candidates.avatarPath,
       journeyStage: candidates.journeyStage,
       marketingStatus: candidates.marketingStatus,
       assignedAt: candidateRecruiterAssignments.assignedAt,

@@ -51,6 +51,7 @@ export const CANDIDATE_NAV_SECTIONS: {
     label: "Updates & resources",
     items: [
       { key: "announcements", label: "Announcements", icon: Megaphone, href: "/announcements" },
+      { key: "messages", label: "Messages", icon: MessageCircle, href: "/messages" },
       { key: "resources", label: "Resources", icon: FileText, href: "/resources" },
     ],
   },
@@ -85,6 +86,5 @@ export const CANDIDATE_SECONDARY_NAV: {
   href: string;
 }[] = [
   { key: "applications", label: "Applications", icon: Briefcase, href: "/applications" },
-  { key: "messages", label: "Messages", icon: MessageCircle, href: "/messages" },
   { key: "help", label: "Help & Support", icon: LifeBuoy, href: "/help" },
 ];

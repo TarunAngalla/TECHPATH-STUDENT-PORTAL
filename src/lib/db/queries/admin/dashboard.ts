@@ -6,16 +6,42 @@ import {
   applicationEvents,
   applications,
   auditLog,
+  candidateRecruiterAssignments,
   candidates,
   leads,
   messages,
   users,
 } from "@/lib/db/schema";
 import { getCandidatesList } from "./candidates";
+import { getLatestAssignmentDates } from "./reports";
+import { getUnreadMessageCount } from "@/lib/db/queries/shared/messages";
 
 function candidateScopeFilter(scope?: StaffScope) {
   if (!scope || scope.seesAllCandidates || !scope.recruiterId) return undefined;
   return eq(candidates.recruiterId, scope.recruiterId);
+}
+
+function buildPeriodTrend(current: number, previous: number): { text: string; tone: "up" | "down" | "flat" } {
+  if (current === 0 && previous === 0) {
+    return { text: "No change", tone: "flat" };
+  }
+  if (previous === 0) {
+    return { text: `+${current} this week`, tone: "up" };
+  }
+  if (previous < 5) {
+    const delta = current - previous;
+    if (delta === 0) return { text: "No change", tone: "flat" };
+    return {
+      text: `${delta > 0 ? "+" : ""}${delta} vs last week`,
+      tone: delta > 0 ? "up" : "down",
+    };
+  }
+  const pctChange = ((current - previous) / previous) * 100;
+  if (Math.abs(pctChange) < 0.05) return { text: "No change", tone: "flat" };
+  return {
+    text: `${pctChange > 0 ? "▲" : "▼"} ${Math.abs(pctChange).toFixed(1)}% vs last week`,
+    tone: pctChange > 0 ? "up" : "down",
+  };
 }
 
 function percent(part: number, whole: number) {
@@ -30,8 +56,6 @@ function weekLabel(start: Date) {
     d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return `${fmt(start)}–${fmt(end)}`;
 }
-
-import { getUnreadMessageCount } from "@/lib/db/queries/shared/messages";
 
 export async function getUnreadStaffMessageCount(scope: StaffScope) {
   return getUnreadMessageCount(scope.userId);
@@ -79,6 +103,31 @@ export async function getDashboardStats(scope?: StaffScope) {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 7);
 
+  const prevWeekStart = new Date(weekStart);
+  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+  const prevWeekEnd = new Date(weekStart);
+
+  // Previous week creation metrics for % change approximations
+  const [prevLeadsCreated] = canViewEnquiries
+    ? await db.select({ count: count() }).from(leads).where(and(gte(leads.createdAt, prevWeekStart), lt(leads.createdAt, prevWeekEnd)))
+    : [{ count: 0 }];
+  
+  const [prevConsultationsCreated] = canViewEnquiries
+    ? await db.select({ count: count() }).from(leads).where(and(gte(leads.createdAt, prevWeekStart), lt(leads.createdAt, prevWeekEnd), ne(leads.consultationStatus, "not_scheduled")))
+    : [{ count: 0 }];
+
+  const [prevActiveCreated] = await db.select({ count: count() }).from(candidates).innerJoin(users, eq(users.id, candidates.userId)).where(and(gte(candidates.createdAt, prevWeekStart), lt(candidates.createdAt, prevWeekEnd), eq(users.accountState, "active"), scopeFilter));
+  const [prevNdaPendingCreated] = await db.select({ count: count() }).from(candidates).innerJoin(users, eq(users.id, candidates.userId)).where(and(gte(candidates.createdAt, prevWeekStart), lt(candidates.createdAt, prevWeekEnd), eq(users.accountState, "nda_pending"), scopeFilter));
+
+  const [currLeadsCreated] = canViewEnquiries
+    ? await db.select({ count: count() }).from(leads).where(and(gte(leads.createdAt, weekStart), lt(leads.createdAt, weekEnd)))
+    : [{ count: 0 }];
+  const [currConsultationsCreated] = canViewEnquiries
+    ? await db.select({ count: count() }).from(leads).where(and(gte(leads.createdAt, weekStart), lt(leads.createdAt, weekEnd), ne(leads.consultationStatus, "not_scheduled")))
+    : [{ count: 0 }];
+  const [currActiveCreated] = await db.select({ count: count() }).from(candidates).innerJoin(users, eq(users.id, candidates.userId)).where(and(gte(candidates.createdAt, weekStart), lt(candidates.createdAt, weekEnd), eq(users.accountState, "active"), scopeFilter));
+  const [currNdaPendingCreated] = await db.select({ count: count() }).from(candidates).innerJoin(users, eq(users.id, candidates.userId)).where(and(gte(candidates.createdAt, weekStart), lt(candidates.createdAt, weekEnd), eq(users.accountState, "nda_pending"), scopeFilter));
+
   const scopedCandidates = await db
     .select({
       id: candidates.id,
@@ -107,6 +156,12 @@ export async function getDashboardStats(scope?: StaffScope) {
     return when >= weekStart && when < weekEnd && UPCOMING_EVENT_STATUSES.includes(event.status as ApplicationEventStatus);
   }).length;
 
+  const interviewsLastWeek = allActivities.filter((event) => {
+    if (event.eventType !== "interview" || !event.scheduledAt) return false;
+    const when = new Date(event.scheduledAt);
+    return when >= prevWeekStart && when < prevWeekEnd && UPCOMING_EVENT_STATUSES.includes(event.status as ApplicationEventStatus);
+  }).length;
+
   const interviewsInProgress = allActivities.filter(
     (event) => event.eventType === "interview" && ["scheduled", "confirmed", "rescheduled", "feedback_pending"].includes(event.status),
   ).length;
@@ -131,7 +186,17 @@ export async function getDashboardStats(scope?: StaffScope) {
     .where(eq(users.role, "recruiter"));
 
   const recentAudit = canViewEnquiries
-    ? await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(10)
+    ? await db
+        .select()
+        .from(auditLog)
+        .where(
+          and(
+            ne(auditLog.action, "user.signed_in"),
+            ne(auditLog.action, "admin_sign_in"),
+          ),
+        )
+        .orderBy(desc(auditLog.createdAt))
+        .limit(12)
     : [];
 
   const recentMessages: {
@@ -185,12 +250,18 @@ export async function getDashboardStats(scope?: StaffScope) {
           source: leads.source,
           status: leads.status,
           notes: leads.notes,
+          roleInterest: leads.roleInterest,
+          experienceSummary: leads.experienceSummary,
           createdAt: leads.createdAt,
         })
         .from(leads)
         .orderBy(desc(leads.createdAt))
         .limit(6)
     : [];
+
+  const assignmentDates = await getLatestAssignmentDates(
+    candidateList.filter((c) => c.recruiterId).map((c) => c.id),
+  );
 
   const assignments = candidateList
     .filter((c) => c.recruiterId)
@@ -200,6 +271,7 @@ export async function getDashboardStats(scope?: StaffScope) {
       candidateName: c.fullName,
       recruiterEmail: c.recruiterEmail ?? "Unassigned",
       journeyStage: c.journeyStage,
+      assignedAt: assignmentDates[c.id] ?? null,
     }));
 
   const marketingProgress = await Promise.all(
@@ -265,8 +337,8 @@ export async function getDashboardStats(scope?: StaffScope) {
 
     weeklyTrend.push({
       name: weekLabel(start),
-      Enquiries: leadRows.filter((l) => l.source === "enquiry_form").length,
-      Consultations: leadRows.filter((l) => l.consultationStatus !== "not_scheduled").length,
+      Enquiries: leadRows.length,
+      Consultations: leadRows.filter((l) => l.consultationStatus === "completed").length,
       Portal: candidatesCreated.length,
       Marketing: candidatesCreated.filter((c) => c.marketingStatus === "live").length,
       Interviews: activitiesInWeek.filter((activity) => activity.eventType === "interview").length,
@@ -277,30 +349,100 @@ export async function getDashboardStats(scope?: StaffScope) {
 
   const enquiries = Number(allLeadsCount?.count ?? 0);
   const consultations = Number(consultationLeads?.count ?? 0);
+  const ndaSignedCount = activeCandidates;
+
+  const [marketingLiveThisWeek] = await db
+    .select({ count: count() })
+    .from(candidates)
+    .where(
+      and(
+        scopeFilter,
+        gte(candidates.marketingLiveAt, weekStart),
+        lt(candidates.marketingLiveAt, weekEnd),
+      ),
+    );
+  const [marketingLiveLastWeek] = await db
+    .select({ count: count() })
+    .from(candidates)
+    .where(
+      and(
+        scopeFilter,
+        gte(candidates.marketingLiveAt, prevWeekStart),
+        lt(candidates.marketingLiveAt, prevWeekEnd),
+      ),
+    );
+
+  const [assignmentsThisWeek] = await db
+    .select({ count: count() })
+    .from(candidateRecruiterAssignments)
+    .where(
+      and(
+        gte(candidateRecruiterAssignments.assignedAt, weekStart),
+        lt(candidateRecruiterAssignments.assignedAt, weekEnd),
+      ),
+    );
+  const [assignmentsLastWeek] = await db
+    .select({ count: count() })
+    .from(candidateRecruiterAssignments)
+    .where(
+      and(
+        gte(candidateRecruiterAssignments.assignedAt, prevWeekStart),
+        lt(candidateRecruiterAssignments.assignedAt, prevWeekEnd),
+      ),
+    );
+
+  const marketingLiveZeroApps = scopedCandidates.filter((c) => {
+    if (c.marketingStatus !== "live") return false;
+    return allApps.filter((a) => a.candidateId === c.id).length === 0;
+  }).length;
+
+  const recruitersAssigned = workload.filter((w) => w.recruiterId).length;
 
   return {
     newLeads: Number(newLeads?.count ?? 0),
+    newLeadsTrend: buildPeriodTrend(Number(currLeadsCreated.count), Number(prevLeadsCreated.count)),
     consultations,
+    consultationsTrend: buildPeriodTrend(
+      Number(currConsultationsCreated.count),
+      Number(prevConsultationsCreated.count),
+    ),
     activeCandidates,
+    activeCandidatesTrend: buildPeriodTrend(Number(currActiveCreated.count), Number(prevActiveCreated.count)),
     ndasPending,
+    ndasPendingTrend: buildPeriodTrend(
+      Number(currNdaPendingCreated.count),
+      Number(prevNdaPendingCreated.count),
+    ),
     marketingLive,
+    marketingLiveTrend: buildPeriodTrend(
+      Number(marketingLiveThisWeek?.count ?? 0),
+      Number(marketingLiveLastWeek?.count ?? 0),
+    ),
     interviewsThisWeek,
+    interviewsThisWeekTrend: buildPeriodTrend(interviewsThisWeek, interviewsLastWeek),
     interviewsInProgress,
-    recruitersAssigned: workload.filter((w) => w.recruiterId).length,
+    recruitersAssigned,
+    recruitersAssignedTrend: buildPeriodTrend(
+      Number(assignmentsThisWeek?.count ?? 0),
+      Number(assignmentsLastWeek?.count ?? 0),
+    ),
     unreadMessages,
+    marketingLiveZeroApps,
     periodLabel,
     funnel: {
       enquiries,
       consultations,
       portalAccess: portalAccessGranted,
+      ndaSigned: ndaSignedCount,
       marketingLive,
       interviewsInProgress,
       placed: placedCount,
       conversions: {
         consultations: percent(consultations, enquiries),
         portal: percent(portalAccessGranted, consultations || enquiries),
-        marketing: percent(marketingLive, portalAccessGranted),
-        interviews: percent(interviewsInProgress, marketingLive || portalAccessGranted),
+        ndaSigned: percent(ndaSignedCount, portalAccessGranted),
+        marketing: percent(marketingLive, ndaSignedCount),
+        interviews: percent(interviewsInProgress, marketingLive || ndaSignedCount),
       },
     },
     workload: workload.map((w) => ({
@@ -308,7 +450,7 @@ export async function getDashboardStats(scope?: StaffScope) {
       count: Number(w.count),
       email: recruiterEmails.find((r) => r.id === w.recruiterId)?.email ?? "Unassigned",
     })),
-    recentAudit,
+    recentAudit: recentAudit.filter((a) => a.action !== "admin_sign_in" && !a.action.includes("sign_in")),
     recentMessages,
     recentLeads,
     assignments,

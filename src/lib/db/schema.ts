@@ -68,6 +68,8 @@ export const candidates = pgTable(
     marketingPausedAt: timestamp("marketing_paused_at", { withTimezone: true }),
     marketingCompletedAt: timestamp("marketing_completed_at", { withTimezone: true }),
     marketingNotes: text("marketing_notes"),
+    /** Relative avatar path (local `/uploads/...` or Supabase object path). */
+    avatarPath: text("avatar_path"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -95,6 +97,7 @@ export const leads = pgTable(
     consultationScheduledAt: timestamp("consultation_scheduled_at", { withTimezone: true }),
     consultationCompletedAt: timestamp("consultation_completed_at", { withTimezone: true }),
     consultationNotes: text("consultation_notes").notNull().default(""),
+    consultationMeetingLink: text("consultation_meeting_link"),
     source: text("source", { enum: ["enquiry_form", "consultation_booked"] }).notNull(),
     status: text("status", {
       enum: ["new", "contacted", "qualified", "rejected", "converted"],
@@ -387,6 +390,19 @@ export const messageReads = pgTable(
   ],
 );
 
+/** Tracks when a candidate last opened Interview Details / Assessments (sidebar “new” badges). */
+export const candidateSectionViews = pgTable(
+  "candidate_section_views",
+  {
+    candidateId: uuid("candidate_id")
+      .notNull()
+      .references(() => candidates.id, { onDelete: "cascade" }),
+    section: text("section").notNull(),
+    lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.candidateId, table.section] })],
+);
+
 export const candidateInvites = pgTable(
   "candidate_invites",
   {
@@ -395,6 +411,8 @@ export const candidateInvites = pgTable(
       .notNull()
       .references(() => candidates.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull().unique(),
+    /** Non-production / no-email testing only. Never set when real invite email is delivered in production. */
+    devPreviewUrl: text("dev_preview_url"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
@@ -526,6 +544,8 @@ export const emailDeliveryTypes = [
   "candidate_invite",
   "candidate_invite_resend",
   "nda_signed_candidate",
+  "consultation_scheduled_candidate",
+  "consultation_scheduled_staff",
 ] as const;
 
 export const emailDeliveryStatuses = ["queued", "sent", "logged", "failed"] as const;
