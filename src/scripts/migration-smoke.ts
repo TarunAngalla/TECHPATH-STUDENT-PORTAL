@@ -52,7 +52,12 @@ async function main() {
 
     for (const file of migrationFiles) {
       const source = await readFile(path.join(migrationsDirectory, file), "utf8");
-      await sql.unsafe(source);
+      // Smoke runs inside an isolated schema via search_path. Drizzle sometimes emits
+      // schema-qualified "public"."table" FKs that miss those tables in CI.
+      const adapted = source
+        .replace(/REFERENCES\s+"public"\."([^"]+)"/gi, 'REFERENCES "$1"')
+        .replace(/REFERENCES\s+public\.([a-zA-Z_][\w]*)/gi, "REFERENCES $1");
+      await sql.unsafe(adapted);
     }
 
     await assertColumn(sql, "messages", "sender_id");

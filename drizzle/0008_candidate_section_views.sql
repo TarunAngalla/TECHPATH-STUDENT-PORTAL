@@ -5,4 +5,4 @@ CREATE TABLE IF NOT EXISTS "candidate_section_views" (
 	CONSTRAINT "candidate_section_views_candidate_id_section_pk" PRIMARY KEY("candidate_id","section")
 );
 --> statement-breakpoint
-ALTER TABLE "candidate_section_views" ADD CONSTRAINT "candidate_section_views_candidate_id_candidates_id_fk" FOREIGN KEY ("candidate_id") REFERENCES "public"."candidates"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "candidate_section_views" ADD CONSTRAINT "candidate_section_views_candidate_id_candidates_id_fk" FOREIGN KEY ("candidate_id") REFERENCES "candidates"("id") ON DELETE cascade ON UPDATE no action;
